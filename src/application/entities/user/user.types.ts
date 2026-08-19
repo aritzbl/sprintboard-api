@@ -15,6 +15,13 @@ export const syncUserSchema = z.object({
 });
 export class SyncUserDto extends createZodDto(syncUserSchema) {}
 
+export const updateMyProfileSchema = z.object({
+  firstName: z.string().trim().min(1).max(60),
+  lastName: z.string().trim().min(1).max(60),
+  photoURL: z.string().url().nullable().optional(),
+});
+export class UpdateMyProfileDto extends createZodDto(updateMyProfileSchema) {}
+
 export const updateUserRoleSchema = z.object({
   role: z.enum(ROLES),
 });

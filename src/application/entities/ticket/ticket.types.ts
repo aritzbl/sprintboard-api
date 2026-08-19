@@ -33,16 +33,25 @@ export const updateTicketSchema = z.object({
 });
 export class UpdateTicketDto extends createZodDto(updateTicketSchema) {}
 
-// Evidence (photo/video) uploaded to Firebase Storage; we store the metadata.
+const EVIDENCE_CONTENT_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'application/pdf',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+] as const;
+
+// Files live in Cloudinary; the API accepts metadata only after validating it.
 export const createAttachmentSchema = z.object({
   url: z.string().url().max(2048),
   storagePath: z.string().trim().min(1).max(1024),
   name: z.string().trim().min(1).max(255),
-  contentType: z.string().trim().min(1).max(128),
+  contentType: z.enum(EVIDENCE_CONTENT_TYPES),
   size: z
     .number()
     .int()
     .nonnegative()
-    .max(209715200), // 200 MB
+    .max(52428800), // 50 MB
 });
 export class CreateAttachmentDto extends createZodDto(createAttachmentSchema) {}

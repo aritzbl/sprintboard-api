@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { EnvVar } from '@config/env-var';
 import { RepositoryName } from '@entities/shared/base-repository.gateway';
 import { Ticket, TicketAttachment } from '@entities/ticket/ticket.entity';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
@@ -13,6 +20,7 @@ export class AddAttachmentUseCase {
     @Inject(RepositoryName.TICKET)
     private readonly tickets: ITicketRepository,
     private readonly access: ProjectAccessService,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(
@@ -25,6 +33,19 @@ export class AddAttachmentUseCase {
       throw new NotFoundException('Ticket not found');
     }
     await this.access.assertAccess(user, ticket.projectId);
+
+    const cloudName = this.config.getOrThrow<string>(
+      EnvVar.CLOUDINARY_CLOUD_NAME,
+    );
+    const cloudinaryOrigin = `https://res.cloudinary.com/${cloudName}/`;
+    if (
+      !dto.url.startsWith(cloudinaryOrigin) ||
+      !dto.storagePath.startsWith('cloudinary:')
+    ) {
+      throw new BadRequestException(
+        'La evidencia debe provenir del almacenamiento autorizado.',
+      );
+    }
 
     const attachment: TicketAttachment = {
       id: randomUUID(),

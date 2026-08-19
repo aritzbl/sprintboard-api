@@ -7,6 +7,7 @@ export interface CreateSprintData {
   goal: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  status?: SprintStatus;
 }
 
 export interface UpdateSprintData {

@@ -30,26 +30,43 @@ export class CompleteSprintUseCase {
       throw new NotFoundException('Sprint not found');
     }
 
-    const targetSprintId = await this.resolveTarget(sprint, dto.moveTo);
+    const target = await this.resolveTarget(sprint, dto);
 
     const open = (
       await this.tickets.findByProject(sprint.projectId, { sprintId: id })
     ).filter((t) => t.status !== 'done');
 
     for (const ticket of open) {
-      await this.tickets.update(ticket.id, { sprintId: targetSprintId });
+      await this.tickets.update(ticket.id, { sprintId: target?.id ?? null });
     }
 
     const updated = await this.sprints.update(id, { status: 'completed' });
+    if (target) await this.sprints.update(target.id, { status: 'active' });
     return updated ?? sprint;
   }
 
-  /** null = backlog; otherwise a sibling sprint that can still receive tickets. */
+  /** null = backlog; otherwise a sibling or the automatically-created next sprint. */
   private async resolveTarget(
     sprint: Sprint,
-    moveTo: string,
-  ): Promise<string | null> {
+    dto: CompleteSprintDto,
+  ): Promise<Sprint | null> {
+    const { moveTo } = dto;
     if (moveTo === 'backlog') return null;
+    if (moveTo === 'new_sprint') {
+      const existing = await this.sprints.findByProject(sprint.projectId);
+      const number = existing.reduce((highest, item) => {
+        const match = /^Sprint\s+(\d+)$/i.exec(item.name.trim());
+        return Math.max(highest, match ? Number(match[1]) : 0);
+      }, 0) + 1;
+      return this.sprints.create({
+        projectId: sprint.projectId,
+        name: `Sprint ${number}`,
+        goal: null,
+        startDate: new Date(dto.newSprint!.startDate),
+        endDate: new Date(dto.newSprint!.endDate),
+        status: 'planned',
+      });
+    }
     if (moveTo === sprint.id) {
       throw new BadRequestException('Cannot move tickets to the same sprint');
     }
@@ -61,6 +78,6 @@ export class CompleteSprintUseCase {
     if (target.status === 'completed') {
       throw new BadRequestException('Cannot move tickets to a completed sprint');
     }
-    return target.id;
+    return target;
   }
 }

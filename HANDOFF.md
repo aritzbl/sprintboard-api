@@ -50,7 +50,7 @@ src/
     `UpdateTicketUseCase`, 400 si es inválida): `todo→in_progress→qa→(done|rejected)`; y `done`/`rejected`
     pueden volver a `qa` o `in_progress`. Toda tarea nace en `todo`. Mismo→mismo siempre permitido.
   - `attachments[]` = `{ id, url, storagePath, name, contentType, size, uploadedById, createdAt }`
-    (metadata de archivos subidos a **Firebase Storage**; el archivo NO pasa por el back).
+    (metadata de archivos subidos a **Cloudinary**; el archivo NO pasa por el back).
 
 ## Roles y acceso
 - Roles **globales**: `superadmin` (todo + gestión de usuarios/proyectos + asigna miembros),
@@ -70,6 +70,7 @@ src/
 | Método | Ruta | Acceso |
 | --- | --- | --- |
 | POST | `/users/me` | cualquier user Firebase (sync perfil, `@AllowUnsynced`) |
+| PATCH | `/users/me` | usuario actual (nombre, apellido, foto de perfil) |
 | GET | `/users/me` · `/users` | miembro |
 | PATCH | `/users/:id/role` | superadmin |
 | GET | `/projects` · `/projects/:id` | miembro (filtrado) |
@@ -120,6 +121,6 @@ npm run start:dev             # http://localhost:4000/api, Swagger en /docs
 
 ## Lo que sigue (backend)
 - Gating fino de tickets/sprints por membresía (ver arriba).
-- (Opcional) limpieza de archivos en Firebase Storage al borrar ticket/proyecto (hoy solo se borra la
-  metadata; el archivo queda huérfano en Storage).
+- (Opcional) limpieza de archivos en Cloudinary al borrar ticket/proyecto (hoy solo se borra la
+  metadata; el archivo queda huérfano en Cloudinary).
 - Deploy: definir hosting del back (Vercel serverless / Railway / Cloud Run) + Postgres gestionado.

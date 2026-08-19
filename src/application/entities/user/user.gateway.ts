@@ -11,9 +11,17 @@ export interface CreateUserData {
   role: Role;
 }
 
+export interface UpdateMyProfileData {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  photoURL?: string | null;
+}
+
 export interface IUserRepository extends IBaseRepository<User> {
   findByFirebaseUid(firebaseUid: string): Promise<User | null>;
   countAll(): Promise<number>;
   create(data: CreateUserData): Promise<User>;
+  updateProfile(id: string, data: UpdateMyProfileData): Promise<User | null>;
   updateRole(id: string, role: Role): Promise<User | null>;
 }

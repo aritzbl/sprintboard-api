@@ -15,10 +15,15 @@ import {
   CurrentUser,
 } from '@interfaces/http/middlewares/auth/current-user.decorator';
 import { User } from '@entities/user/user.entity';
-import { SyncUserDto, UpdateUserRoleDto } from '@entities/user/user.types';
+import {
+  SyncUserDto,
+  UpdateMyProfileDto,
+  UpdateUserRoleDto,
+} from '@entities/user/user.types';
 import { SyncUserUseCase } from '@usecases/user/sync-user.usecase';
 import { ListUsersUseCase } from '@usecases/user/list-users.usecase';
 import { UpdateUserRoleUseCase } from '@usecases/user/update-user-role.usecase';
+import { UpdateMyProfileUseCase } from '@usecases/user/update-my-profile.usecase';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -28,6 +33,7 @@ export class UsersController {
     private readonly syncUser: SyncUserUseCase,
     private readonly listUsers: ListUsersUseCase,
     private readonly updateUserRole: UpdateUserRoleUseCase,
+    private readonly updateMyProfile: UpdateMyProfileUseCase,
   ) {}
 
   @Post('me')
@@ -51,6 +57,15 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Profile not initialized' })
   me(@CurrentUser() user: User): User {
     return user;
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update the caller profile' })
+  updateMe(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateMyProfileDto,
+  ): Promise<User> {
+    return this.updateMyProfile.execute(user, dto);
   }
 
   @Get()

@@ -43,7 +43,7 @@ export class SprintTypeOrmRepository
 
   async create(data: CreateSprintData): Promise<Sprint> {
     const saved = await this.repository.save(
-      this.repository.create({ ...data, status: 'planned' }),
+      this.repository.create({ ...data, status: data.status ?? 'active' }),
     );
     return this.toDomain(saved);
   }
