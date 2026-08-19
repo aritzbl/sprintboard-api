@@ -44,6 +44,9 @@ export class UpdateTicketUseCase {
       if (!sprint || sprint.projectId !== existing.projectId) {
         throw new BadRequestException('Sprint does not belong to this project');
       }
+      if (sprint.status === 'completed') {
+        throw new BadRequestException('Cannot assign a ticket to a completed sprint');
+      }
     }
     if (dto.assigneeId !== undefined && dto.assigneeId !== null) {
       if (!(await this.users.findById(dto.assigneeId))) {

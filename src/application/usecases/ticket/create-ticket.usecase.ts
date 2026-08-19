@@ -67,6 +67,9 @@ export class CreateTicketUseCase {
     if (!sprint || sprint.projectId !== projectId) {
       throw new BadRequestException('Sprint does not belong to this project');
     }
+    if (sprint.status === 'completed') {
+      throw new BadRequestException('Cannot assign a ticket to a completed sprint');
+    }
   }
 
   private async assertAssigneeExists(assigneeId: string | null): Promise<void> {
