@@ -7,6 +7,14 @@ import { User } from '@entities/user/user.entity';
 import { ProjectAccessService } from '@services/project-access.service';
 
 /** Lists the users that are members of a project (visible to members + superadmin). */
+export interface PaginatedProjectMembers {
+  items: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 @Injectable()
 export class ListProjectMembersUseCase {
   constructor(
@@ -19,14 +27,34 @@ export class ListProjectMembersUseCase {
     private readonly access: ProjectAccessService,
   ) {}
 
-  async execute(projectId: string, user: User): Promise<User[]> {
+  async execute(
+    projectId: string,
+    user: User,
+    page: number,
+    pageSize: number,
+  ): Promise<PaginatedProjectMembers> {
     if (!(await this.projects.findById(projectId))) {
       throw new NotFoundException('Project not found');
     }
     await this.access.assertAccess(user, projectId);
 
-    const memberIds = new Set(await this.members.userIdsForProject(projectId));
-    const all = await this.users.findAll();
-    return all.filter((u) => memberIds.has(u.id));
+    const result = await this.members.pageUserIdsForProject(
+      projectId,
+      page,
+      pageSize,
+    );
+    const users = await this.users.findByIds(result.userIds);
+    const usersById = new Map(users.map((member) => [member.id, member]));
+    const items = result.userIds
+      .map((id) => usersById.get(id))
+      .filter((member): member is User => !!member);
+
+    return {
+      items,
+      total: result.total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(result.total / pageSize)),
+    };
   }
 }

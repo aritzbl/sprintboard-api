@@ -20,6 +20,7 @@ export interface UpdateMyProfileData {
 
 export interface IUserRepository extends IBaseRepository<User> {
   findByFirebaseUid(firebaseUid: string): Promise<User | null>;
+  findByIds(ids: string[]): Promise<User[]>;
   countAll(): Promise<number>;
   create(data: CreateUserData): Promise<User>;
   updateProfile(id: string, data: UpdateMyProfileData): Promise<User | null>;

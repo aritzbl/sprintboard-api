@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Role, User } from '@entities/user/user.entity';
 import {
   CreateUserData,
@@ -29,6 +29,12 @@ export class UserTypeOrmRepository
   async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
     const found = await this.repository.findOne({ where: { firebaseUid } });
     return found ? this.toDomain(found) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.repository.find({ where: { id: In(ids) } });
+    return rows.map((row) => this.toDomain(row));
   }
 
   async countAll(): Promise<number> {

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -30,7 +31,10 @@ import { GetProjectUseCase } from '@usecases/project/get-project.usecase';
 import { CreateProjectUseCase } from '@usecases/project/create-project.usecase';
 import { UpdateProjectUseCase } from '@usecases/project/update-project.usecase';
 import { DeleteProjectUseCase } from '@usecases/project/delete-project.usecase';
-import { ListProjectMembersUseCase } from '@usecases/member/list-project-members.usecase';
+import {
+  ListProjectMembersUseCase,
+  PaginatedProjectMembers,
+} from '@usecases/member/list-project-members.usecase';
 import { AddMemberUseCase } from '@usecases/member/add-member.usecase';
 import { RemoveMemberUseCase } from '@usecases/member/remove-member.usecase';
 
@@ -104,8 +108,20 @@ export class ProjectsController {
   members(
     @Param('projectId') projectId: string,
     @CurrentUser() user: User,
-  ): Promise<User[]> {
-    return this.listProjectMembers.execute(projectId, user);
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ): Promise<PaginatedProjectMembers> {
+    const normalizedPage = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
+    const normalizedPageSize = Math.min(
+      100,
+      Math.max(1, Number.parseInt(pageSize ?? '10', 10) || 10),
+    );
+    return this.listProjectMembers.execute(
+      projectId,
+      user,
+      normalizedPage,
+      normalizedPageSize,
+    );
   }
 
   @Post(':projectId/members')

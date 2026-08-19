@@ -51,6 +51,21 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
     return rows.map((r) => r.userId);
   }
 
+  async pageUserIdsForProject(
+    projectId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<{ userIds: string[]; total: number }> {
+    const [rows, total] = await this.repository.findAndCount({
+      where: { projectId },
+      select: ['userId'],
+      order: { createdAt: 'ASC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    return { userIds: rows.map((row) => row.userId), total };
+  }
+
   async removeByProject(projectId: string): Promise<void> {
     await this.repository.delete({ projectId });
   }
