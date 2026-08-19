@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sprintboard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sprintboard
+      POSTGRES_PASSWORD: sprintboard
+      POSTGRES_DB: sprintboard
+    # Host port 5442 to avoid colliding with a native PostgreSQL on 5432.
+    ports:
+      - '5442:5432'
+    volumes:
+      - sprintboard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sprintboard']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sprintboard_pgdata:
