@@ -6,19 +6,23 @@ import {
   UpdateSprintData,
 } from '@entities/sprint/sprint.gateway';
 import { UpdateSprintDto } from '@entities/sprint/sprint.types';
+import { User } from '@entities/user/user.entity';
+import { ProjectAccessService } from '@services/project-access.service';
 
 @Injectable()
 export class UpdateSprintUseCase {
   constructor(
     @Inject(RepositoryName.SPRINT)
     private readonly sprints: ISprintRepository,
+    private readonly access: ProjectAccessService,
   ) {}
 
-  async execute(id: string, dto: UpdateSprintDto): Promise<Sprint> {
+  async execute(id: string, dto: UpdateSprintDto, user: User): Promise<Sprint> {
     const existing = await this.sprints.findById(id);
     if (!existing) {
       throw new NotFoundException('Sprint not found');
     }
+    await this.access.assertManager(user, existing.projectId);
 
     const patch: UpdateSprintData = {};
     if (dto.name !== undefined) patch.name = dto.name;

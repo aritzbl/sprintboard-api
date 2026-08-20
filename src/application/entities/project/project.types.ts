@@ -23,7 +23,7 @@ export const updateProjectSchema = z.object({
 });
 export class UpdateProjectDto extends createZodDto(updateProjectSchema) {}
 
-export const addMemberSchema = z.object({
-  userId: z.string().uuid(),
-});
+export const addMemberSchema = z.object({ userId: z.string().uuid(), role: z.enum(['pm', 'dev', 'qa']).default('dev') });
 export class AddMemberDto extends createZodDto(addMemberSchema) {}
+export const updateMemberRoleSchema = z.object({ role: z.enum(['pm', 'dev', 'qa']) });
+export class UpdateMemberRoleDto extends createZodDto(updateMemberRoleSchema) {}

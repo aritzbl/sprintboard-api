@@ -29,6 +29,14 @@ export class ProjectAccessService {
     }
   }
 
+  async assertManager(user: User, projectId: string): Promise<void> {
+    if (this.isSuperadmin(user)) return;
+    const membership = await this.members.find(projectId, user.id);
+    if (membership?.role !== 'pm') {
+      throw new ForbiddenException('No tenés permisos de PM en este proyecto');
+    }
+  }
+
   /** Project ids the user can see, or 'all' for superadmins. */
   async visibleProjectIds(user: User): Promise<string[] | 'all'> {
     if (this.isSuperadmin(user)) return 'all';

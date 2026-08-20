@@ -11,6 +11,10 @@ import { Ticket } from '@entities/ticket/ticket.entity';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
 import { CreateTicketDto } from '@entities/ticket/ticket.types';
 import { IUserRepository } from '@entities/user/user.gateway';
+import { User } from '@entities/user/user.entity';
+import { ProjectAccessService } from '@services/project-access.service';
+import { IProjectMemberRepository } from '@entities/project-member/project-member.gateway';
+import { IEpicRepository } from '@entities/epic/epic.gateway';
 
 @Injectable()
 export class CreateTicketUseCase {
@@ -23,20 +27,30 @@ export class CreateTicketUseCase {
     private readonly sprints: ISprintRepository,
     @Inject(RepositoryName.USER)
     private readonly users: IUserRepository,
+    @Inject(RepositoryName.PROJECT_MEMBER)
+    private readonly members: IProjectMemberRepository,
+    @Inject(RepositoryName.EPIC)
+    private readonly epics: IEpicRepository,
+    private readonly access: ProjectAccessService,
   ) {}
 
   async execute(
     projectId: string,
     dto: CreateTicketDto,
-    reporterId: string,
+    user: User,
   ): Promise<Ticket> {
     const project = await this.projects.findById(projectId);
     if (!project) {
       throw new NotFoundException('Project not found');
     }
+    await this.access.assertAccess(user, projectId);
 
     await this.assertSprintBelongsToProject(dto.sprintId ?? null, projectId);
-    await this.assertAssigneeExists(dto.assigneeId ?? null);
+    await this.assertEpicBelongsToProject(dto.epicId ?? null, projectId);
+    await this.assertAssigneeBelongsToProject(
+      dto.assigneeId ?? null,
+      projectId,
+    );
 
     const number = await this.projects.nextTicketNumber(projectId);
 
@@ -49,9 +63,10 @@ export class CreateTicketUseCase {
       priority: dto.priority,
       storyPoints: dto.storyPoints ?? null,
       status: dto.status,
-      reporterId,
+      reporterId: user.id,
       assigneeId: dto.assigneeId ?? null,
       sprintId: dto.sprintId ?? null,
+      epicId: dto.epicId ?? null,
       labels: dto.labels ?? [],
       attachments: [],
       order: number,
@@ -68,14 +83,33 @@ export class CreateTicketUseCase {
       throw new BadRequestException('Sprint does not belong to this project');
     }
     if (sprint.status === 'completed') {
-      throw new BadRequestException('Cannot assign a ticket to a completed sprint');
+      throw new BadRequestException(
+        'Cannot assign a ticket to a completed sprint',
+      );
     }
   }
 
-  private async assertAssigneeExists(assigneeId: string | null): Promise<void> {
+  private async assertAssigneeBelongsToProject(
+    assigneeId: string | null,
+    projectId: string,
+  ): Promise<void> {
     if (!assigneeId) return;
     if (!(await this.users.findById(assigneeId))) {
       throw new BadRequestException('Assignee not found');
+    }
+    if (!(await this.members.exists(projectId, assigneeId))) {
+      throw new BadRequestException('Assignee is not a member of this project');
+    }
+  }
+
+  private async assertEpicBelongsToProject(
+    epicId: string | null,
+    projectId: string,
+  ): Promise<void> {
+    if (!epicId) return;
+    const epic = await this.epics.findById(epicId);
+    if (!epic || epic.projectId !== projectId) {
+      throw new BadRequestException('Epic does not belong to this project');
     }
   }
 }

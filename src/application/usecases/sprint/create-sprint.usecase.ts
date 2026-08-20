@@ -9,6 +9,8 @@ import { IProjectRepository } from '@entities/project/project.gateway';
 import { Sprint } from '@entities/sprint/sprint.entity';
 import { ISprintRepository } from '@entities/sprint/sprint.gateway';
 import { CreateSprintDto } from '@entities/sprint/sprint.types';
+import { User } from '@entities/user/user.entity';
+import { ProjectAccessService } from '@services/project-access.service';
 
 @Injectable()
 export class CreateSprintUseCase {
@@ -17,12 +19,14 @@ export class CreateSprintUseCase {
     private readonly sprints: ISprintRepository,
     @Inject(RepositoryName.PROJECT)
     private readonly projects: IProjectRepository,
+    private readonly access: ProjectAccessService,
   ) {}
 
-  async execute(projectId: string, dto: CreateSprintDto): Promise<Sprint> {
+  async execute(projectId: string, dto: CreateSprintDto, user: User): Promise<Sprint> {
     if (!(await this.projects.findById(projectId))) {
       throw new NotFoundException('Project not found');
     }
+    await this.access.assertManager(user, projectId);
     if (await this.sprints.findActiveByProject(projectId)) {
       throw new BadRequestException(
         'Completá el sprint activo antes de crear uno nuevo.',

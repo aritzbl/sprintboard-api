@@ -8,6 +8,7 @@ import { TicketOrmEntity } from '@data-access/persistence/ticket/ticket.orm-enti
 import { UserOrmEntity } from '@data-access/persistence/user/user.orm-entity';
 import { ProjectMemberOrmEntity } from '@data-access/persistence/project-member/project-member.orm-entity';
 import { InvitationOrmEntity } from '@data-access/persistence/invitation/invitation.orm-entity';
+import { EpicOrmEntity } from '@data-access/persistence/epic/epic.orm-entity';
 
 const entities = [
   UserOrmEntity,
@@ -16,6 +17,7 @@ const entities = [
   TicketOrmEntity,
   ProjectMemberOrmEntity,
   InvitationOrmEntity,
+  EpicOrmEntity,
 ];
 
 /** Wires TypeORM to PostgreSQL using validated configuration. */

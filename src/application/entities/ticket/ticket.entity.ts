@@ -65,6 +65,8 @@ export class Ticket {
   assigneeId!: string | null;
   /** null means the ticket sits in the backlog. */
   sprintId!: string | null;
+  /** null means the ticket is not part of an epic. */
+  epicId!: string | null;
   labels!: string[];
   attachments!: TicketAttachment[];
   /** Ordering within its board column. */

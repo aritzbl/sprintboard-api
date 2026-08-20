@@ -15,6 +15,7 @@ export const createTicketSchema = z.object({
   status: z.enum(TICKET_STATUSES).default('todo'),
   assigneeId: z.string().uuid().nullable().optional(),
   sprintId: z.string().uuid().nullable().optional(),
+  epicId: z.string().uuid().nullable().optional(),
   labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
 });
 export class CreateTicketDto extends createZodDto(createTicketSchema) {}
@@ -28,6 +29,7 @@ export const updateTicketSchema = z.object({
   status: z.enum(TICKET_STATUSES).optional(),
   assigneeId: z.string().uuid().nullable().optional(),
   sprintId: z.string().uuid().nullable().optional(),
+  epicId: z.string().uuid().nullable().optional(),
   labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   order: z.number().int().min(0).optional(),
 });
@@ -48,10 +50,6 @@ export const createAttachmentSchema = z.object({
   storagePath: z.string().trim().min(1).max(1024),
   name: z.string().trim().min(1).max(255),
   contentType: z.enum(EVIDENCE_CONTENT_TYPES),
-  size: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(52428800), // 50 MB
+  size: z.number().int().nonnegative().max(52428800), // 50 MB
 });
 export class CreateAttachmentDto extends createZodDto(createAttachmentSchema) {}

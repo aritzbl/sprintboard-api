@@ -19,6 +19,7 @@ export interface CreateTicketData {
   reporterId: string;
   assigneeId: string | null;
   sprintId: string | null;
+  epicId: string | null;
   labels: string[];
   attachments: TicketAttachment[];
   order: number;
@@ -33,6 +34,7 @@ export interface UpdateTicketData {
   status?: TicketStatus;
   assigneeId?: string | null;
   sprintId?: string | null;
+  epicId?: string | null;
   labels?: string[];
   order?: number;
 }
@@ -41,6 +43,7 @@ export interface TicketFilters {
   sprintId?: string | null;
   status?: TicketStatus;
   assigneeId?: string;
+  epicId?: string | null;
 }
 
 export interface ITicketRepository extends IBaseRepository<Ticket> {
@@ -54,4 +57,6 @@ export interface ITicketRepository extends IBaseRepository<Ticket> {
   deleteByProject(projectId: string): Promise<void>;
   /** Moves every ticket of a sprint back to the backlog (sprintId = null). */
   moveSprintTicketsToBacklog(sprintId: string): Promise<void>;
+  /** Unlinks tickets from a deleted epic without deleting the tickets. */
+  clearEpicFromTickets(epicId: string): Promise<void>;
 }

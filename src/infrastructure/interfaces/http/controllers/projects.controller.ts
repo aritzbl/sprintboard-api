@@ -23,6 +23,7 @@ import { Project } from '@entities/project/project.entity';
 import { ProjectMember } from '@entities/project-member/project-member.entity';
 import {
   AddMemberDto,
+  UpdateMemberRoleDto,
   CreateProjectDto,
   UpdateProjectDto,
 } from '@entities/project/project.types';
@@ -37,6 +38,7 @@ import {
 } from '@usecases/member/list-project-members.usecase';
 import { AddMemberUseCase } from '@usecases/member/add-member.usecase';
 import { RemoveMemberUseCase } from '@usecases/member/remove-member.usecase';
+import { UpdateMemberRoleUseCase } from '@usecases/member/update-member-role.usecase';
 
 @ApiTags('Projects')
 @ApiBearerAuth('JWT-auth')
@@ -51,6 +53,7 @@ export class ProjectsController {
     private readonly listProjectMembers: ListProjectMembersUseCase,
     private readonly addMember: AddMemberUseCase,
     private readonly removeMember: RemoveMemberUseCase,
+    private readonly updateMemberRole: UpdateMemberRoleUseCase,
   ) {}
 
   @Get()
@@ -71,8 +74,8 @@ export class ProjectsController {
   }
 
   @Post()
-  @Roles('superadmin', 'pm')
-  @ApiOperation({ summary: 'Create a project (PM or superadmin)' })
+  @Roles('superadmin')
+  @ApiOperation({ summary: 'Create a project (superadmin)' })
   @ApiResponse({ status: 409, description: 'Project key already in use' })
   create(
     @Body() dto: CreateProjectDto,
@@ -82,13 +85,13 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  @Roles('superadmin', 'pm')
   @ApiOperation({ summary: 'Update a project (PM or superadmin)' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
+    @CurrentUser() user: User,
   ): Promise<Project> {
-    return this.updateProject.execute(id, dto);
+    return this.updateProject.execute(id, dto, user);
   }
 
   @Delete(':id')
@@ -132,7 +135,7 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
     @Body() dto: AddMemberDto,
   ): Promise<ProjectMember> {
-    return this.addMember.execute(projectId, dto.userId);
+    return this.addMember.execute(projectId, dto.userId, dto.role);
   }
 
   @Delete(':projectId/members/:userId')
@@ -144,5 +147,15 @@ export class ProjectsController {
     @Param('userId') userId: string,
   ): Promise<void> {
     return this.removeMember.execute(projectId, userId);
+  }
+
+  @Patch(':projectId/members/:userId/role')
+  @Roles('superadmin')
+  changeMemberRole(
+    @Param('projectId') projectId: string,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateMemberRoleDto,
+  ): Promise<ProjectMember> {
+    return this.updateMemberRole.execute(projectId, userId, dto.role);
   }
 }

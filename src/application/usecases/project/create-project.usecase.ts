@@ -27,8 +27,9 @@ export class CreateProjectUseCase {
       createdById,
     });
 
-    // The creator is automatically a member of the project.
-    await this.members.add(project.id, createdById);
+    // The creator is automatically the project PM. Superadmin remains a
+    // workspace-wide role and is handled as a bypass by ProjectAccessService.
+    await this.members.add(project.id, createdById, 'pm');
 
     return project;
   }

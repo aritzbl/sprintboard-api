@@ -4,6 +4,7 @@ import { IProjectRepository } from '@entities/project/project.gateway';
 import { IProjectMemberRepository } from '@entities/project-member/project-member.gateway';
 import { ProjectMember } from '@entities/project-member/project-member.entity';
 import { IUserRepository } from '@entities/user/user.gateway';
+import { Role } from '@entities/user/user.entity';
 
 /** Superadmin grants a user access to a project. */
 @Injectable()
@@ -17,13 +18,13 @@ export class AddMemberUseCase {
     private readonly users: IUserRepository,
   ) {}
 
-  async execute(projectId: string, userId: string): Promise<ProjectMember> {
+  async execute(projectId: string, userId: string, role: Role = 'dev'): Promise<ProjectMember> {
     if (!(await this.projects.findById(projectId))) {
       throw new NotFoundException('Project not found');
     }
     if (!(await this.users.findById(userId))) {
       throw new NotFoundException('User not found');
     }
-    return this.members.add(projectId, userId);
+    return this.members.add(projectId, userId, role);
   }
 }

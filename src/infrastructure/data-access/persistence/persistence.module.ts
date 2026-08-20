@@ -13,6 +13,8 @@ import { SprintTypeOrmRepository } from '@data-access/persistence/sprint/sprint.
 import { TicketTypeOrmRepository } from '@data-access/persistence/ticket/ticket.typeorm-repository';
 import { ProjectMemberTypeOrmRepository } from '@data-access/persistence/project-member/project-member.typeorm-repository';
 import { InvitationTypeOrmRepository } from '@data-access/persistence/invitation/invitation.typeorm-repository';
+import { EpicOrmEntity } from '@data-access/persistence/epic/epic.orm-entity';
+import { EpicTypeOrmRepository } from '@data-access/persistence/epic/epic.typeorm-repository';
 
 /**
  * Binds each repository port (RepositoryName.*) to its TypeORM implementation
@@ -29,6 +31,7 @@ import { InvitationTypeOrmRepository } from '@data-access/persistence/invitation
       TicketOrmEntity,
       ProjectMemberOrmEntity,
       InvitationOrmEntity,
+      EpicOrmEntity,
     ]),
   ],
   providers: [
@@ -40,7 +43,11 @@ import { InvitationTypeOrmRepository } from '@data-access/persistence/invitation
       provide: RepositoryName.PROJECT_MEMBER,
       useClass: ProjectMemberTypeOrmRepository,
     },
-    { provide: RepositoryName.INVITATION, useClass: InvitationTypeOrmRepository },
+    {
+      provide: RepositoryName.INVITATION,
+      useClass: InvitationTypeOrmRepository,
+    },
+    { provide: RepositoryName.EPIC, useClass: EpicTypeOrmRepository },
   ],
   exports: [
     RepositoryName.USER,
@@ -49,6 +56,7 @@ import { InvitationTypeOrmRepository } from '@data-access/persistence/invitation
     RepositoryName.TICKET,
     RepositoryName.PROJECT_MEMBER,
     RepositoryName.INVITATION,
+    RepositoryName.EPIC,
   ],
 })
 export class PersistenceModule {}

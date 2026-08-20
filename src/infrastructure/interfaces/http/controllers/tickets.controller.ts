@@ -50,7 +50,9 @@ export class TicketsController {
   ) {}
 
   @Get('projects/:projectId/tickets')
-  @ApiOperation({ summary: 'List the tickets of a project, optionally filtered' })
+  @ApiOperation({
+    summary: 'List the tickets of a project, optionally filtered',
+  })
   @ApiQuery({
     name: 'sprintId',
     required: false,
@@ -60,9 +62,11 @@ export class TicketsController {
   @ApiQuery({ name: 'assigneeId', required: false })
   list(
     @Param('projectId') projectId: string,
+    @CurrentUser() user: User,
     @Query('sprintId') sprintId?: string,
     @Query('status') status?: TicketStatus,
     @Query('assigneeId') assigneeId?: string,
+    @Query('epicId') epicId?: string,
   ): Promise<Ticket[]> {
     const filters: TicketFilters = {};
     if (sprintId !== undefined) {
@@ -71,7 +75,10 @@ export class TicketsController {
     }
     if (status) filters.status = status;
     if (assigneeId) filters.assigneeId = assigneeId;
-    return this.listTickets.execute(projectId, filters);
+    if (epicId !== undefined) {
+      filters.epicId = epicId === 'none' || epicId === 'null' ? null : epicId;
+    }
+    return this.listTickets.execute(projectId, user, filters);
   }
 
   @Post('projects/:projectId/tickets')
@@ -84,14 +91,14 @@ export class TicketsController {
     @Body() dto: CreateTicketDto,
     @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.createTicket.execute(projectId, dto, user.id);
+    return this.createTicket.execute(projectId, dto, user);
   }
 
   @Get('tickets/:id')
   @ApiOperation({ summary: 'Get a ticket by id' })
   @ApiResponse({ status: 404, description: 'Ticket not found' })
-  getOne(@Param('id') id: string): Promise<Ticket> {
-    return this.getTicket.execute(id);
+  getOne(@Param('id') id: string, @CurrentUser() user: User): Promise<Ticket> {
+    return this.getTicket.execute(id, user);
   }
 
   @Patch('tickets/:id')
@@ -102,8 +109,9 @@ export class TicketsController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateTicketDto,
+    @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.updateTicket.execute(id, dto);
+    return this.updateTicket.execute(id, dto, user);
   }
 
   @Delete('tickets/:id')
@@ -111,12 +119,14 @@ export class TicketsController {
   @ApiOperation({ summary: 'Delete a ticket (any member)' })
   @ApiResponse({ status: 204, description: 'Ticket deleted' })
   @ApiResponse({ status: 404, description: 'Ticket not found' })
-  remove(@Param('id') id: string): Promise<void> {
-    return this.deleteTicket.execute(id);
+  remove(@Param('id') id: string, @CurrentUser() user: User): Promise<void> {
+    return this.deleteTicket.execute(id, user);
   }
 
   @Post('tickets/:id/attachments')
-  @ApiOperation({ summary: 'Attach evidence (photo/video metadata) to a ticket' })
+  @ApiOperation({
+    summary: 'Attach evidence (photo/video metadata) to a ticket',
+  })
   @ApiResponse({ status: 201, description: 'Attachment added' })
   attach(
     @Param('id') id: string,

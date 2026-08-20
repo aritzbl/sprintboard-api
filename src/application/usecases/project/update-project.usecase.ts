@@ -6,19 +6,23 @@ import {
   UpdateProjectData,
 } from '@entities/project/project.gateway';
 import { UpdateProjectDto } from '@entities/project/project.types';
+import { User } from '@entities/user/user.entity';
+import { ProjectAccessService } from '@services/project-access.service';
 
 @Injectable()
 export class UpdateProjectUseCase {
   constructor(
     @Inject(RepositoryName.PROJECT)
     private readonly projects: IProjectRepository,
+    private readonly access: ProjectAccessService,
   ) {}
 
-  async execute(id: string, dto: UpdateProjectDto): Promise<Project> {
+  async execute(id: string, dto: UpdateProjectDto, user: User): Promise<Project> {
     const existing = await this.projects.findById(id);
     if (!existing) {
       throw new NotFoundException('Project not found');
     }
+    await this.access.assertManager(user, id);
 
     const patch: UpdateProjectData = {};
     if (dto.name !== undefined) patch.name = dto.name;

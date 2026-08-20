@@ -13,6 +13,8 @@ import { ProjectModule } from '@/modules/project.module';
 import { SprintModule } from '@/modules/sprint.module';
 import { TicketModule } from '@/modules/ticket.module';
 import { InvitationModule } from '@/modules/invitation.module';
+import { EpicModule } from '@/modules/epic.module';
+import { HealthController } from '@interfaces/http/controllers/health.controller';
 
 @Module({
   imports: [
@@ -27,7 +29,9 @@ import { InvitationModule } from '@/modules/invitation.module';
     SprintModule,
     TicketModule,
     InvitationModule,
+    EpicModule,
   ],
+  controllers: [HealthController],
   providers: [
     // Validate every @Body against its Zod DTO schema.
     { provide: APP_PIPE, useClass: ZodValidationPipe },

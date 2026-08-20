@@ -9,6 +9,8 @@ import { Sprint } from '@entities/sprint/sprint.entity';
 import { ISprintRepository } from '@entities/sprint/sprint.gateway';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
 import { CompleteSprintDto } from '@entities/sprint/sprint.types';
+import { User } from '@entities/user/user.entity';
+import { ProjectAccessService } from '@services/project-access.service';
 
 /**
  * Completes a sprint: only DONE tickets stay archived with it; everything else
@@ -22,13 +24,15 @@ export class CompleteSprintUseCase {
     private readonly sprints: ISprintRepository,
     @Inject(RepositoryName.TICKET)
     private readonly tickets: ITicketRepository,
+    private readonly access: ProjectAccessService,
   ) {}
 
-  async execute(id: string, dto: CompleteSprintDto): Promise<Sprint> {
+  async execute(id: string, dto: CompleteSprintDto, user: User): Promise<Sprint> {
     const sprint = await this.sprints.findById(id);
     if (!sprint) {
       throw new NotFoundException('Sprint not found');
     }
+    await this.access.assertManager(user, sprint.projectId);
 
     const target = await this.resolveTarget(sprint, dto);
 

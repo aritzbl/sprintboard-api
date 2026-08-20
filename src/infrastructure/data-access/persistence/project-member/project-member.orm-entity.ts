@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Role } from '@entities/user/user.entity';
 
 @Entity({ name: 'project_members' })
 @Index('UQ_project_member', ['projectId', 'userId'], { unique: true })
@@ -19,6 +20,9 @@ export class ProjectMemberOrmEntity {
   @Index()
   @Column({ type: 'uuid' })
   userId!: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  role!: Role | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

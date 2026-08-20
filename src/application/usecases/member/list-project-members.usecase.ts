@@ -43,11 +43,22 @@ export class ListProjectMembersUseCase {
       page,
       pageSize,
     );
-    const users = await this.users.findByIds(result.userIds);
+    const users = await this.users.findByIds(
+      result.members.map((member) => member.userId),
+    );
     const usersById = new Map(users.map((member) => [member.id, member]));
-    const items = result.userIds
-      .map((id) => usersById.get(id))
-      .filter((member): member is User => !!member);
+    const items = result.members.flatMap((membership) => {
+      const member = usersById.get(membership.userId);
+      if (!member) return [];
+      return [
+        Object.assign(member, {
+          role:
+            member.role === 'superadmin'
+              ? 'superadmin'
+              : membership.role ?? 'dev',
+        }),
+      ];
+    });
 
     return {
       items,

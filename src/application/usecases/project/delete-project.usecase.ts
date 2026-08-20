@@ -4,6 +4,7 @@ import { IProjectRepository } from '@entities/project/project.gateway';
 import { IProjectMemberRepository } from '@entities/project-member/project-member.gateway';
 import { ISprintRepository } from '@entities/sprint/sprint.gateway';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
+import { IEpicRepository } from '@entities/epic/epic.gateway';
 
 /** Deletes a project along with all of its sprints, tickets and memberships. */
 @Injectable()
@@ -17,6 +18,8 @@ export class DeleteProjectUseCase {
     private readonly tickets: ITicketRepository,
     @Inject(RepositoryName.PROJECT_MEMBER)
     private readonly members: IProjectMemberRepository,
+    @Inject(RepositoryName.EPIC)
+    private readonly epics: IEpicRepository,
   ) {}
 
   async execute(id: string): Promise<void> {
@@ -27,6 +30,7 @@ export class DeleteProjectUseCase {
 
     await this.tickets.deleteByProject(id);
     await this.sprints.deleteByProject(id);
+    await this.epics.deleteByProject(id);
     await this.members.removeByProject(id);
     await this.projects.delete(id);
   }

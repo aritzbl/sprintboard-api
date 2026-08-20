@@ -3,5 +3,7 @@ export class ProjectMember {
   id!: string;
   projectId!: string;
   userId!: string;
+  role!: Role | null;
   createdAt!: Date;
 }
+import { Role } from '@entities/user/user.entity';

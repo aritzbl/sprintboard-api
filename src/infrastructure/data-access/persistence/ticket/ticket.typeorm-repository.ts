@@ -44,6 +44,11 @@ export class TicketTypeOrmRepository
     if (filters?.assigneeId) {
       where.assigneeId = filters.assigneeId;
     }
+    if (filters?.epicId === null) {
+      where.epicId = IsNull();
+    } else if (filters?.epicId) {
+      where.epicId = filters.epicId;
+    }
 
     const rows = await this.repository.find({
       where,
@@ -76,5 +81,9 @@ export class TicketTypeOrmRepository
 
   async moveSprintTicketsToBacklog(sprintId: string): Promise<void> {
     await this.repository.update({ sprintId }, { sprintId: null });
+  }
+
+  async clearEpicFromTickets(epicId: string): Promise<void> {
+    await this.repository.update({ epicId }, { epicId: null });
   }
 }

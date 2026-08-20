@@ -37,6 +37,20 @@ export class UserTypeOrmRepository
     return rows.map((row) => this.toDomain(row));
   }
 
+  async search(query: string, limit: number): Promise<User[]> {
+    const term = `%${query.trim()}%`;
+    const rows = await this.repository
+      .createQueryBuilder('user')
+      .where(
+        '"user"."displayName" ILIKE :term OR "user"."email" ILIKE :term OR "user"."firstName" ILIKE :term OR "user"."lastName" ILIKE :term',
+        { term },
+      )
+      .orderBy('"user"."displayName"', 'ASC')
+      .take(limit)
+      .getMany();
+    return rows.map((row) => this.toDomain(row));
+  }
+
   async countAll(): Promise<number> {
     return this.repository.count();
   }

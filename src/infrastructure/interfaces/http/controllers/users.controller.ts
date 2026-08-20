@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -70,8 +78,12 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: 'List all workspace members' })
-  list(): Promise<User[]> {
-    return this.listUsers.execute();
+  list(
+    @Query('query') query?: string,
+    @Query('limit') limit?: string,
+  ): Promise<User[]> {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+    return this.listUsers.execute(query, parsedLimit);
   }
 
   @Patch(':id/role')

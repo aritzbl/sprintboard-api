@@ -33,13 +33,8 @@ export class AcceptInvitationUseCase {
       throw new BadRequestException('This invitation has expired');
     }
 
-    // Grant the role, but never downgrade a superadmin.
-    if (user.role !== 'superadmin' && user.role !== invitation.role) {
-      await this.users.updateRole(user.id, invitation.role);
-    }
-
     for (const projectId of invitation.projectIds) {
-      await this.members.add(projectId, user.id);
+      await this.members.add(projectId, user.id, invitation.role);
     }
 
     await this.invitations.update(invitation.id, {

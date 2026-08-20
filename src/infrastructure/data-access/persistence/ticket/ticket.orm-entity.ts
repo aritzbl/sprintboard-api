@@ -55,6 +55,10 @@ export class TicketOrmEntity {
   @Column({ name: 'sprint_id', type: 'uuid', nullable: true })
   sprintId!: string | null;
 
+  @Index()
+  @Column({ name: 'epic_id', type: 'uuid', nullable: true })
+  epicId!: string | null;
+
   @Column({ type: 'text', array: true, default: () => "'{}'" })
   labels!: string[];
 

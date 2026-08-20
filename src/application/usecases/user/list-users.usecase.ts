@@ -10,7 +10,10 @@ export class ListUsersUseCase {
     private readonly users: IUserRepository,
   ) {}
 
-  execute(): Promise<User[]> {
+  execute(query?: string, limit?: number): Promise<User[]> {
+    if (query !== undefined) {
+      return this.users.search(query, Math.min(Math.max(limit ?? 10, 1), 20));
+    }
     return this.users.findAll();
   }
 }

@@ -8,6 +8,7 @@ import { DeleteProjectUseCase } from '@usecases/project/delete-project.usecase';
 import { ListProjectMembersUseCase } from '@usecases/member/list-project-members.usecase';
 import { AddMemberUseCase } from '@usecases/member/add-member.usecase';
 import { RemoveMemberUseCase } from '@usecases/member/remove-member.usecase';
+import { UpdateMemberRoleUseCase } from '@usecases/member/update-member-role.usecase';
 
 @Module({
   controllers: [ProjectsController],
@@ -20,6 +21,7 @@ import { RemoveMemberUseCase } from '@usecases/member/remove-member.usecase';
     ListProjectMembersUseCase,
     AddMemberUseCase,
     RemoveMemberUseCase,
+    UpdateMemberRoleUseCase,
   ],
 })
 export class ProjectModule {}
