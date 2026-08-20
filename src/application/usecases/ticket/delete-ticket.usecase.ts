@@ -18,6 +18,6 @@ export class DeleteTicketUseCase {
       throw new NotFoundException('Ticket not found');
     }
     await this.access.assertAccess(user, existing.projectId);
-    await this.tickets.delete(id);
+    await this.tickets.softDelete(id);
   }
 }

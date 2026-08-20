@@ -32,7 +32,10 @@ export class ProjectTypeOrmRepository
   }
 
   async findByKey(key: string): Promise<Project | null> {
-    const found = await this.repository.findOne({ where: { key } });
+    const found = await this.repository.findOne({
+      where: { key },
+      withDeleted: true,
+    });
     return found ? this.toDomain(found) : null;
   }
 

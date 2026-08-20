@@ -24,6 +24,6 @@ export class DeleteSprintUseCase {
     await this.access.assertManager(user, existing.projectId);
 
     await this.tickets.moveSprintTicketsToBacklog(id);
-    await this.sprints.delete(id);
+    await this.sprints.softDelete(id);
   }
 }

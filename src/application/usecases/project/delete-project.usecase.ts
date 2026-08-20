@@ -6,7 +6,7 @@ import { ISprintRepository } from '@entities/sprint/sprint.gateway';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
 import { IEpicRepository } from '@entities/epic/epic.gateway';
 
-/** Deletes a project along with all of its sprints, tickets and memberships. */
+/** Archives a project and its related records without destroying data. */
 @Injectable()
 export class DeleteProjectUseCase {
   constructor(
@@ -32,6 +32,6 @@ export class DeleteProjectUseCase {
     await this.sprints.deleteByProject(id);
     await this.epics.deleteByProject(id);
     await this.members.removeByProject(id);
-    await this.projects.delete(id);
+    await this.projects.softDelete(id);
   }
 }

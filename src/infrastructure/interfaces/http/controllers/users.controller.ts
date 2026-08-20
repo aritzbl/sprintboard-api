@@ -30,6 +30,7 @@ import {
 } from '@entities/user/user.types';
 import { SyncUserUseCase } from '@usecases/user/sync-user.usecase';
 import { ListUsersUseCase } from '@usecases/user/list-users.usecase';
+import { ListUserDirectoryUseCase } from '@usecases/user/list-user-directory.usecase';
 import { UpdateUserRoleUseCase } from '@usecases/user/update-user-role.usecase';
 import { UpdateMyProfileUseCase } from '@usecases/user/update-my-profile.usecase';
 
@@ -40,6 +41,7 @@ export class UsersController {
   constructor(
     private readonly syncUser: SyncUserUseCase,
     private readonly listUsers: ListUsersUseCase,
+    private readonly listUserDirectory: ListUserDirectoryUseCase,
     private readonly updateUserRole: UpdateUserRoleUseCase,
     private readonly updateMyProfile: UpdateMyProfileUseCase,
   ) {}
@@ -84,6 +86,23 @@ export class UsersController {
   ): Promise<User[]> {
     const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
     return this.listUsers.execute(query, parsedLimit);
+  }
+
+  @Get('directory')
+  @Roles('superadmin')
+  @ApiOperation({ summary: 'List workspace users with server-side filters and pagination' })
+  directory(
+    @Query('query') query?: string,
+    @Query('scope') scope?: 'all' | 'admins' | 'members',
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.listUserDirectory.execute({
+      query,
+      scope,
+      page: page ? Number.parseInt(page, 10) : undefined,
+      pageSize: pageSize ? Number.parseInt(pageSize, 10) : undefined,
+    });
   }
 
   @Patch(':id/role')

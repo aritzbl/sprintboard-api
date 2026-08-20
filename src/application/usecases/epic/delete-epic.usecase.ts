@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { IEpicRepository } from '@entities/epic/epic.gateway';
 import { RepositoryName } from '@entities/shared/base-repository.gateway';
 import { ITicketRepository } from '@entities/ticket/ticket.gateway';
@@ -21,7 +26,12 @@ export class DeleteEpicUseCase {
       throw new NotFoundException('Epic not found');
     }
     await this.access.assertManager(user, epic.projectId);
-    await this.tickets.clearEpicFromTickets(id);
-    await this.epics.delete(id);
+    const ticketCount = await this.tickets.countByEpic(id);
+    if (ticketCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar la épica porque tiene ${ticketCount} tarea${ticketCount === 1 ? '' : 's'} asociada${ticketCount === 1 ? '' : 's'}.`,
+      );
+    }
+    await this.epics.softDelete(id);
   }
 }

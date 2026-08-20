@@ -85,7 +85,8 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a project (PM or superadmin)' })
+  @ApiOperation({ summary: 'Update a project (key is editable only before the first ticket)' })
+  @ApiResponse({ status: 409, description: 'Project key already in use or already locked by tickets' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,

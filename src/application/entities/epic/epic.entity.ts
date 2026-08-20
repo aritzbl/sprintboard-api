@@ -7,4 +7,5 @@ export class Epic {
   color!: string;
   createdAt!: Date;
   updatedAt!: Date;
+  deletedAt!: Date | null;
 }

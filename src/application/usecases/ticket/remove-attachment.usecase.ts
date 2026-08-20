@@ -24,10 +24,7 @@ export class RemoveAttachmentUseCase {
     }
     await this.access.assertAccess(user, ticket.projectId);
 
-    const next = (ticket.attachments ?? []).filter(
-      (a) => a.id !== attachmentId,
-    );
-    const updated = await this.tickets.updateAttachments(ticketId, next);
+    const updated = await this.tickets.archiveAttachment(ticketId, attachmentId);
     return updated ?? ticket;
   }
 }

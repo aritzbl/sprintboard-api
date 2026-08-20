@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { RepositoryName } from '@entities/shared/base-repository.gateway';
 import { Project } from '@entities/project/project.entity';
 import {
@@ -26,6 +31,19 @@ export class UpdateProjectUseCase {
 
     const patch: UpdateProjectData = {};
     if (dto.name !== undefined) patch.name = dto.name;
+    if (dto.key !== undefined) {
+      if (existing.ticketCounter > 0) {
+        throw new ConflictException(
+          'No se puede modificar el identificador porque el proyecto ya tiene tickets.',
+        );
+      }
+      const key = dto.key.toUpperCase();
+      const keyOwner = await this.projects.findByKey(key);
+      if (keyOwner && keyOwner.id !== existing.id) {
+        throw new ConflictException(`Project key "${key}" is already in use`);
+      }
+      patch.key = key;
+    }
     if (dto.description !== undefined) patch.description = dto.description ?? null;
 
     if (Object.keys(patch).length === 0) return existing;

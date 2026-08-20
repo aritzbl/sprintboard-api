@@ -45,6 +45,6 @@ export class EpicTypeOrmRepository
   }
 
   async deleteByProject(projectId: string): Promise<void> {
-    await this.repository.delete({ projectId });
+    await this.repository.softDelete({ projectId });
   }
 }

@@ -24,7 +24,11 @@ export class TicketTypeOrmRepository
   }
 
   protected toDomain(orm: TicketOrmEntity): Ticket {
-    return Object.assign(new Ticket(), orm);
+    const ticket = Object.assign(new Ticket(), orm);
+    ticket.attachments = (orm.attachments ?? []).filter(
+      (attachment) => !attachment.deletedAt,
+    );
+    return ticket;
   }
 
   async findByProject(
@@ -62,6 +66,10 @@ export class TicketTypeOrmRepository
     return this.toDomain(saved);
   }
 
+  async countByEpic(epicId: string): Promise<number> {
+    return this.repository.count({ where: { epicId } });
+  }
+
   async update(id: string, patch: UpdateTicketData): Promise<Ticket | null> {
     await this.repository.update(id, patch);
     return this.findById(id);
@@ -75,8 +83,34 @@ export class TicketTypeOrmRepository
     return this.findById(id);
   }
 
+  async appendAttachment(
+    id: string,
+    attachment: TicketAttachment,
+  ): Promise<Ticket | null> {
+    const ticket = await this.repository.findOne({ where: { id } });
+    if (!ticket) return null;
+    ticket.attachments = [...(ticket.attachments ?? []), attachment];
+    await this.repository.save(ticket);
+    return this.findById(id);
+  }
+
+  async archiveAttachment(
+    id: string,
+    attachmentId: string,
+  ): Promise<Ticket | null> {
+    const ticket = await this.repository.findOne({ where: { id } });
+    if (!ticket) return null;
+    ticket.attachments = (ticket.attachments ?? []).map((attachment) =>
+      attachment.id === attachmentId && !attachment.deletedAt
+        ? { ...attachment, deletedAt: new Date().toISOString() }
+        : attachment,
+    );
+    await this.repository.save(ticket);
+    return this.findById(id);
+  }
+
   async deleteByProject(projectId: string): Promise<void> {
-    await this.repository.delete({ projectId });
+    await this.repository.softDelete({ projectId });
   }
 
   async moveSprintTicketsToBacklog(sprintId: string): Promise<void> {

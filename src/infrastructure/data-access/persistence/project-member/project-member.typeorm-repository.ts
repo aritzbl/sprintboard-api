@@ -29,9 +29,11 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
   async add(projectId: string, userId: string, role: Role = 'dev'): Promise<ProjectMember> {
     const existing = await this.repository.findOne({
       where: { projectId, userId },
+      withDeleted: true,
     });
     if (existing) {
-      if (existing.role !== role) {
+      if (existing.deletedAt || existing.role !== role) {
+        existing.deletedAt = null;
         existing.role = role;
         return this.toDomain(await this.repository.save(existing));
       }
@@ -50,7 +52,7 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
   }
 
   async remove(projectId: string, userId: string): Promise<void> {
-    await this.repository.delete({ projectId, userId });
+    await this.repository.softDelete({ projectId, userId });
   }
 
   async projectIdsForUser(userId: string): Promise<string[]> {
@@ -85,6 +87,6 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
   }
 
   async removeByProject(projectId: string): Promise<void> {
-    await this.repository.delete({ projectId });
+    await this.repository.softDelete({ projectId });
   }
 }

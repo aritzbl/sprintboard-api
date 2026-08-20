@@ -17,5 +17,7 @@ export enum RepositoryName {
 export interface IBaseRepository<T> {
   findById(id: string): Promise<T | null>;
   findAll(): Promise<T[]>;
+  /** Marks an entity as deleted when its persistence model supports soft deletion. */
+  softDelete(id: string): Promise<boolean>;
   delete(id: string): Promise<boolean>;
 }

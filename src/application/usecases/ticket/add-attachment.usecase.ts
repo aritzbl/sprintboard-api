@@ -58,10 +58,7 @@ export class AddAttachmentUseCase {
       createdAt: new Date().toISOString(),
     };
 
-    const updated = await this.tickets.updateAttachments(ticketId, [
-      ...(ticket.attachments ?? []),
-      attachment,
-    ]);
+    const updated = await this.tickets.appendAttachment(ticketId, attachment);
     return updated ?? ticket;
   }
 }

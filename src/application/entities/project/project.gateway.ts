@@ -10,6 +10,7 @@ export interface CreateProjectData {
 
 export interface UpdateProjectData {
   name?: string;
+  key?: string;
   description?: string | null;
 }
 

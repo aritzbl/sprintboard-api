@@ -5,5 +5,6 @@ export class ProjectMember {
   userId!: string;
   role!: Role | null;
   createdAt!: Date;
+  deletedAt!: Date | null;
 }
 import { Role } from '@entities/user/user.entity';

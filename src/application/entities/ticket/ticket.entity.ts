@@ -47,6 +47,8 @@ export interface TicketAttachment {
   size: number;
   uploadedById: string;
   createdAt: string;
+  /** Logical deletion timestamp. Archived evidence is never returned to the UI. */
+  deletedAt?: string | null;
 }
 
 /** A unit of work: bug, task or user story. */
@@ -73,4 +75,5 @@ export class Ticket {
   order!: number;
   createdAt!: Date;
   updatedAt!: Date;
+  deletedAt!: Date | null;
 }

@@ -18,11 +18,23 @@ export interface UpdateMyProfileData {
   photoURL?: string | null;
 }
 
+export interface UserDirectoryResult {
+  items: User[];
+  total: number;
+}
+
 export interface IUserRepository extends IBaseRepository<User> {
   findByFirebaseUid(firebaseUid: string): Promise<User | null>;
   findByIds(ids: string[]): Promise<User[]>;
   search(query: string, limit: number): Promise<User[]>;
+  findDirectory(options: {
+    query?: string;
+    isAdmin?: boolean;
+    page: number;
+    pageSize: number;
+  }): Promise<UserDirectoryResult>;
   countAll(): Promise<number>;
+  countByRole(role: Role): Promise<number>;
   create(data: CreateUserData): Promise<User>;
   updateProfile(id: string, data: UpdateMyProfileData): Promise<User | null>;
   updateRole(id: string, role: Role): Promise<User | null>;

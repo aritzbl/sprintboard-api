@@ -28,6 +28,11 @@ export abstract class BaseTypeOrmRepository<
     return rows.map((row) => this.toDomain(row));
   }
 
+  async softDelete(id: string): Promise<boolean> {
+    const result = await this.repository.softDelete(id);
+    return (result.affected ?? 0) > 0;
+  }
+
   async delete(id: string): Promise<boolean> {
     const result = await this.repository.delete(id);
     return (result.affected ?? 0) > 0;

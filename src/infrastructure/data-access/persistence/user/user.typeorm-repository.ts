@@ -6,6 +6,7 @@ import {
   CreateUserData,
   IUserRepository,
   UpdateMyProfileData,
+  UserDirectoryResult,
 } from '@entities/user/user.gateway';
 import { BaseTypeOrmRepository } from '@data-access/persistence/base-typeorm.repository';
 import { UserOrmEntity } from '@data-access/persistence/user/user.orm-entity';
@@ -51,8 +52,39 @@ export class UserTypeOrmRepository
     return rows.map((row) => this.toDomain(row));
   }
 
+  async findDirectory(options: {
+    query?: string;
+    isAdmin?: boolean;
+    page: number;
+    pageSize: number;
+  }): Promise<UserDirectoryResult> {
+    const query = this.repository
+      .createQueryBuilder('user')
+      .orderBy('"user"."role"', 'ASC')
+      .addOrderBy('"user"."displayName"', 'ASC')
+      .skip((options.page - 1) * options.pageSize)
+      .take(options.pageSize);
+
+    const term = options.query?.trim();
+    if (term) {
+      query.andWhere(
+        '"user"."displayName" ILIKE :term OR "user"."email" ILIKE :term OR "user"."firstName" ILIKE :term OR "user"."lastName" ILIKE :term',
+        { term: `%${term}%` },
+      );
+    }
+    if (options.isAdmin === true) query.andWhere('"user"."role" = :adminRole', { adminRole: 'superadmin' });
+    if (options.isAdmin === false) query.andWhere('"user"."role" != :adminRole', { adminRole: 'superadmin' });
+
+    const [rows, total] = await query.getManyAndCount();
+    return { items: rows.map((row) => this.toDomain(row)), total };
+  }
+
   async countAll(): Promise<number> {
     return this.repository.count();
+  }
+
+  async countByRole(role: Role): Promise<number> {
+    return this.repository.count({ where: { role } });
   }
 
   async create(data: CreateUserData): Promise<User> {

@@ -66,8 +66,9 @@ export class EpicsController {
 
   @Delete('epics/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete an epic and unlink its tickets' })
+  @ApiOperation({ summary: 'Delete an epic only when it has no associated tickets' })
   @ApiResponse({ status: 204, description: 'Epic deleted' })
+  @ApiResponse({ status: 409, description: 'Epic still has associated tickets' })
   remove(@Param('id') id: string, @CurrentUser() user: User): Promise<void> {
     return this.deleteEpic.execute(id, user);
   }

@@ -15,6 +15,10 @@ Este esquema usa **Neon** para PostgreSQL, **Render** para la API y **Vercel** p
 4. Cuando el deploy responda `GET /api/health` con `{ "status": "ok" }`, cambiar `DB_SYNCHRONIZE=false` y ejecutar un deploy manual. Así los siguientes deploys no modifican el esquema de forma automática.
 5. Inicialmente `CORS_ORIGIN` puede ser `*`. Se reemplaza por el dominio final de Vercel al terminar el paso siguiente.
 
+### Cambios de esquema posteriores
+
+Con `DB_SYNCHRONIZE=false`, ejecutar primero los SQL versionados en la carpeta `migrations/` desde el editor SQL de Neon y recién después desplegar la API. Por ejemplo, el borrado lógico requiere ejecutar `migrations/002_soft_delete.sql` una sola vez.
+
 ## 3. Web en Vercel
 
 1. Importar el repositorio `sprintboard-web` en Vercel (rama `main`).

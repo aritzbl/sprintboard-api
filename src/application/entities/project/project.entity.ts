@@ -10,4 +10,5 @@ export class Project {
   createdById!: string;
   createdAt!: Date;
   updatedAt!: Date;
+  deletedAt!: Date | null;
 }

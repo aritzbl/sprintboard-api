@@ -12,4 +12,5 @@ export class Sprint {
   endDate!: Date | null;
   createdAt!: Date;
   updatedAt!: Date;
+  deletedAt!: Date | null;
 }
