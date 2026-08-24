@@ -20,12 +20,17 @@ import {
 import { CurrentUser } from '@interfaces/http/middlewares/auth/current-user.decorator';
 import { User } from '@entities/user/user.entity';
 import { Ticket, TicketStatus } from '@entities/ticket/ticket.entity';
+import { TicketComment } from '@entities/ticket-comment/ticket-comment.entity';
 import { TicketFilters } from '@entities/ticket/ticket.gateway';
 import {
   CreateAttachmentDto,
   CreateTicketDto,
   UpdateTicketDto,
 } from '@entities/ticket/ticket.types';
+import {
+  CreateTicketCommentDto,
+  UpdateTicketCommentDto,
+} from '@entities/ticket-comment/ticket-comment.types';
 import { ListTicketsUseCase } from '@usecases/ticket/list-tickets.usecase';
 import { CreateTicketUseCase } from '@usecases/ticket/create-ticket.usecase';
 import { GetTicketUseCase } from '@usecases/ticket/get-ticket.usecase';
@@ -33,6 +38,10 @@ import { UpdateTicketUseCase } from '@usecases/ticket/update-ticket.usecase';
 import { DeleteTicketUseCase } from '@usecases/ticket/delete-ticket.usecase';
 import { AddAttachmentUseCase } from '@usecases/ticket/add-attachment.usecase';
 import { RemoveAttachmentUseCase } from '@usecases/ticket/remove-attachment.usecase';
+import { ListTicketCommentsUseCase } from '@usecases/ticket-comment/list-ticket-comments.usecase';
+import { CreateTicketCommentUseCase } from '@usecases/ticket-comment/create-ticket-comment.usecase';
+import { UpdateTicketCommentUseCase } from '@usecases/ticket-comment/update-ticket-comment.usecase';
+import { DeleteTicketCommentUseCase } from '@usecases/ticket-comment/delete-ticket-comment.usecase';
 
 // Collection routes are nested under a project; item routes live under /tickets.
 @ApiTags('Tickets')
@@ -47,6 +56,10 @@ export class TicketsController {
     private readonly deleteTicket: DeleteTicketUseCase,
     private readonly addAttachment: AddAttachmentUseCase,
     private readonly removeAttachment: RemoveAttachmentUseCase,
+    private readonly listTicketComments: ListTicketCommentsUseCase,
+    private readonly createTicketComment: CreateTicketCommentUseCase,
+    private readonly updateTicketComment: UpdateTicketCommentUseCase,
+    private readonly deleteTicketComment: DeleteTicketCommentUseCase,
   ) {}
 
   @Get('projects/:projectId/tickets')
@@ -144,5 +157,46 @@ export class TicketsController {
     @CurrentUser() user: User,
   ): Promise<Ticket> {
     return this.removeAttachment.execute(id, attachmentId, user);
+  }
+
+  @Get('tickets/:id/comments')
+  @ApiOperation({ summary: 'List comments of a ticket' })
+  comments(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<TicketComment[]> {
+    return this.listTicketComments.execute(id, user);
+  }
+
+  @Post('tickets/:id/comments')
+  @ApiOperation({ summary: 'Add a comment to a ticket' })
+  addComment(
+    @Param('id') id: string,
+    @Body() dto: CreateTicketCommentDto,
+    @CurrentUser() user: User,
+  ): Promise<TicketComment> {
+    return this.createTicketComment.execute(id, dto, user);
+  }
+
+  @Patch('tickets/:id/comments/:commentId')
+  @ApiOperation({ summary: 'Edit own ticket comment' })
+  updateComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateTicketCommentDto,
+    @CurrentUser() user: User,
+  ): Promise<TicketComment> {
+    return this.updateTicketComment.execute(id, commentId, dto, user);
+  }
+
+  @Delete('tickets/:id/comments/:commentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Logically delete own ticket comment' })
+  deleteComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    return this.deleteTicketComment.execute(id, commentId, user);
   }
 }

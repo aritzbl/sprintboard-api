@@ -14,10 +14,11 @@ Este esquema usa **Neon** para PostgreSQL, **Render** para la API y **Vercel** p
 3. Para el primer deploy, con la base de Neon recién creada y vacía, definir `DB_SYNCHRONIZE=true` para que TypeORM cree el esquema inicial.
 4. Cuando el deploy responda `GET /api/health` con `{ "status": "ok" }`, cambiar `DB_SYNCHRONIZE=false` y ejecutar un deploy manual. Así los siguientes deploys no modifican el esquema de forma automática.
 5. Inicialmente `CORS_ORIGIN` puede ser `*`. Se reemplaza por el dominio final de Vercel al terminar el paso siguiente.
+6. Para enviar invitaciones y recuperación de contraseña, definir también `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `WEB_URL` y `LINK_EXPIRATION_HOURS`. Con Gmail, usar `smtp.gmail.com`, puerto `465`, `SMTP_SECURE=true` y una **contraseña de aplicación** de Google; nunca la contraseña normal de la cuenta. Usar `LINK_EXPIRATION_HOURS=24` para que las invitaciones y cambios de email venzan en un día.
 
 ### Cambios de esquema posteriores
 
-Con `DB_SYNCHRONIZE=false`, ejecutar primero los SQL versionados en la carpeta `migrations/` desde el editor SQL de Neon y recién después desplegar la API. Por ejemplo, el borrado lógico requiere ejecutar `migrations/002_soft_delete.sql` una sola vez.
+Con `DB_SYNCHRONIZE=false`, ejecutar primero los SQL versionados en la carpeta `migrations/` desde el editor SQL de Neon y recién después desplegar la API. Cada archivo se ejecuta una sola vez y en orden; por ejemplo, el borrado lógico usa `002_soft_delete.sql`, la reutilización de keys archivadas usa `003_project_key_reuse_and_ticket_index.sql`, los índices de rendimiento usan `004_query_performance_indexes.sql`, la baja lógica de usuarios usa `005_soft_delete_users.sql`, los comentarios usan `006_ticket_comments.sql` y la confirmación de cambio de email usa `007_email_change_requests.sql`.
 
 ## 3. Web en Vercel
 

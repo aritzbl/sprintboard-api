@@ -10,6 +10,9 @@ import { Role } from '@entities/user/user.entity';
 
 @Entity({ name: 'project_members' })
 @Index('UQ_project_member', ['projectId', 'userId'], { unique: true })
+@Index('IDX_project_members_active_project_created_at', ['projectId', 'createdAt'], {
+  where: 'deleted_at IS NULL',
+})
 export class ProjectMemberOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

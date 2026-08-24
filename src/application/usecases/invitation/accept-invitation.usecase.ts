@@ -32,14 +32,22 @@ export class AcceptInvitationUseCase {
     if (invitation.expiresAt && invitation.expiresAt.getTime() < Date.now()) {
       throw new BadRequestException('This invitation has expired');
     }
+    if (invitation.email && invitation.email.toLowerCase() !== user.email.toLowerCase()) {
+      throw new BadRequestException('Esta invitación fue enviada a otro email.');
+    }
 
-    for (const projectId of invitation.projectIds) {
-      await this.members.add(projectId, user.id, invitation.role);
+    if (invitation.role === 'superadmin') {
+      await this.users.updateRole(user.id, 'superadmin');
+    } else {
+      for (const projectId of invitation.projectIds) {
+        await this.members.add(projectId, user.id, invitation.role);
+      }
     }
 
     await this.invitations.update(invitation.id, {
       status: 'accepted',
       acceptedById: user.id,
+      expiresAt: new Date(),
     });
 
     return { projectIds: invitation.projectIds };

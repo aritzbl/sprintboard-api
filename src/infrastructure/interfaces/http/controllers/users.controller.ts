@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -16,6 +17,7 @@ import {
 import { DecodedIdToken } from 'firebase-admin/auth';
 import {
   AllowUnsynced,
+  Public,
   Roles,
 } from '@interfaces/http/middlewares/auth/roles.decorator';
 import {
@@ -27,12 +29,22 @@ import {
   SyncUserDto,
   UpdateMyProfileDto,
   UpdateUserRoleDto,
+  PasswordResetDto,
+  RequestEmailChangeDto,
 } from '@entities/user/user.types';
 import { SyncUserUseCase } from '@usecases/user/sync-user.usecase';
 import { ListUsersUseCase } from '@usecases/user/list-users.usecase';
 import { ListUserDirectoryUseCase } from '@usecases/user/list-user-directory.usecase';
 import { UpdateUserRoleUseCase } from '@usecases/user/update-user-role.usecase';
 import { UpdateMyProfileUseCase } from '@usecases/user/update-my-profile.usecase';
+import { DeleteUserUseCase } from '@usecases/user/delete-user.usecase';
+import { SendPasswordResetUseCase } from '@usecases/user/send-password-reset.usecase';
+import { RequestEmailChangeUseCase } from '@usecases/user/request-email-change.usecase';
+import {
+  EmailChangeView,
+  GetEmailChangeUseCase,
+} from '@usecases/user/get-email-change.usecase';
+import { ConfirmEmailChangeUseCase } from '@usecases/user/confirm-email-change.usecase';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -44,6 +56,11 @@ export class UsersController {
     private readonly listUserDirectory: ListUserDirectoryUseCase,
     private readonly updateUserRole: UpdateUserRoleUseCase,
     private readonly updateMyProfile: UpdateMyProfileUseCase,
+    private readonly deleteUser: DeleteUserUseCase,
+    private readonly sendPasswordReset: SendPasswordResetUseCase,
+    private readonly requestEmailChange: RequestEmailChangeUseCase,
+    private readonly getEmailChange: GetEmailChangeUseCase,
+    private readonly confirmEmailChangeUseCase: ConfirmEmailChangeUseCase,
   ) {}
 
   @Post('me')
@@ -59,6 +76,36 @@ export class UsersController {
     @Body() dto: SyncUserDto,
   ): Promise<User> {
     return this.syncUser.execute(token, dto);
+  }
+
+  @Post('password-reset')
+  @Public()
+  @ApiOperation({ summary: 'Send a password reset email' })
+  async passwordReset(@Body() dto: PasswordResetDto): Promise<void> {
+    await this.sendPasswordReset.execute(dto.email.toLowerCase());
+  }
+
+  @Post('me/email-change')
+  @ApiOperation({ summary: 'Request a verified change to the caller email' })
+  async requestEmailChangeForMe(
+    @CurrentUser() user: User,
+    @Body() dto: RequestEmailChangeDto,
+  ): Promise<void> {
+    await this.requestEmailChange.execute(user, dto.email);
+  }
+
+  @Get('email-change/:token')
+  @Public()
+  @ApiOperation({ summary: 'View an email-change confirmation' })
+  emailChangeView(@Param('token') token: string): Promise<EmailChangeView> {
+    return this.getEmailChange.execute(token);
+  }
+
+  @Post('email-change/:token/confirm')
+  @Public()
+  @ApiOperation({ summary: 'Confirm a one-time email change' })
+  async confirmEmailChange(@Param('token') token: string): Promise<void> {
+    await this.confirmEmailChangeUseCase.execute(token);
   }
 
   @Get('me')
@@ -116,5 +163,13 @@ export class UsersController {
     @Body() dto: UpdateUserRoleDto,
   ): Promise<User> {
     return this.updateUserRole.execute(id, dto.role);
+  }
+
+  @Delete(':id')
+  @Roles('superadmin')
+  @ApiOperation({ summary: 'Logically delete a workspace user (superadmin only)' })
+  @ApiResponse({ status: 204, description: 'User deleted' })
+  remove(@Param('id') id: string, @CurrentUser() user: User): Promise<void> {
+    return this.deleteUser.execute(id, user);
   }
 }

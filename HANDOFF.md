@@ -1,142 +1,116 @@
-# Kanbio — Backend Handoff (`sprintboard-api`)
+# Kanbio — Handoff backend
 
-> Estado a 2026-08-18. Este doc es para retomar en un chat nuevo sin perder contexto.
-> El repo del front es `../sprintboard-web` (ver su propio `HANDOFF.md`).
+> Actualizado: 2026-08-24. Frontend en `../sprintboard-web`.
 
-**Kanbio** = mini-Jira para un equipo chico (2 devs, QA, PM). Proyectos → épicas → sprints → tickets
-(bug/task/HU) con prioridad, story points, reporter/assignee, labels y **evidencia (foto/video)**.
-Nombre visible del producto: **Kanbio** (los repos se llaman `sprintboard-*` por dentro).
+## Producto y stack
 
-## Stack
-NestJS 11 + TypeORM 0.3 + PostgreSQL. DTOs con `nestjs-zod`. Swagger en `/docs`. Build con **webpack**
-(`nest build`). Auth = **Firebase Auth**: el front manda el ID token como `Bearer`; el back lo verifica
-con `firebase-admin` en un guard global. `users` en Postgres espeja al user de Firebase.
+Kanbio es un gestor de proyectos tipo mini-Jira: proyectos, miembros por proyecto, épicas, sprints,
+tickets, evidencia y comentarios. Backend: NestJS 11, TypeORM, PostgreSQL/Neon y Firebase Admin.
+La API usa el prefijo `/api`; Swagger local está en `/docs`.
 
-## Arquitectura (hexagonal, copiada de `Koibanx/mercantil-crypto-gateway`)
+Producción:
+
+- API Render: `https://kanbio-api.onrender.com`
+- Base de datos Neon: proyecto `wispy-sound-06582223`, branch `br-lively-surf-acd90x5p`.
+- Front: `https://kanbio.vercel.app`
+
+Local:
+
+- API: `http://localhost:4000/api` (verificada saludable el 2026-08-24).
+- El backend local está arrancado desde `dist/main.js`; antes de probar cambios, recompilar y reiniciar.
+- Front esperado: `http://localhost:3000`.
+
+## Acceso y roles
+
+- `superadmin` es el único rol global. Puede administrar usuarios y crear/borrar proyectos.
+- `pm`, `dev` y `qa` existen exclusivamente en `project_members`.
+- Registrarse no concede acceso a proyectos: el usuario debe ser miembro o superadmin.
+- El primer usuario sincronizado queda como superadmin; los demás quedan sin acceso hasta recibir una
+  membresía/invitación.
+- Los borrados de usuarios, proyectos, tickets y épicas son lógicos. Al borrar un proyecto, también se
+  realiza el borrado lógico en cadena de sus recursos asociados.
+
+## Funcionalidad implementada
+
+- Proyectos: crear, editar, eliminar con confirmación de escritura; la `key` se puede cambiar solo si
+  aún no tiene tickets. Las keys eliminadas pueden reutilizarse.
+- Épicas: crear, editar, color configurable y asociación a tickets. Solo se pueden eliminar si no tienen
+  tareas asociadas. Listado paginado y buscable en el frontend.
+- Sprints/backlog/histórico: completar sprint conserva `done` en el histórico y mueve el resto al backlog
+  u otro sprint. Sin sprint activo no se muestran tareas finalizadas como trabajo vigente.
+- Tickets: drag para estado/sprint, edición rápida desde card, story points editables, adjuntos Cloudinary,
+  borrado lógico con confirmación de escritura y toast.
+- Comentarios de tickets: CRUD, cada comentario conserva creador y solo su creador lo puede editar/eliminar.
+  **Pendiente de validación manual completa por el usuario.**
+- Usuarios globales: tabla paginada, filtros y borrado lógico. Cambios de roles con toast.
+- Perfil: actualización de foto propagada en la UI; opción para restaurar avatar por defecto.
+
+## Email y enlaces
+
+Se agregó envío SMTP con Gmail mediante `nodemailer` y plantillas HTML de Kanbio:
+
+- Invitación por email (incluye rol y proyectos).
+- Recuperación de contraseña: el enlace lo genera Firebase; su vencimiento lo controla Firebase.
+- Cambio de email: se genera solicitud propia, confirmada con token de un solo uso.
+- Una invitación aceptada queda formalmente vencida y no se puede reutilizar.
+- Corregir el email de una invitación rota el token anterior, genera uno nuevo y reinicia el vencimiento.
+
+Todas las invitaciones y confirmaciones de cambio de email usan `LINK_EXPIRATION_HOURS`; el valor de
+producción y local es `24`. El tiempo real **y el texto de los mails** salen de esa variable, no de un
+`24` hardcodeado. La recuperación de contraseña es la única excepción porque Firebase controla su TTL.
+
+Variables de Render necesarias (sin valores secretos en este documento):
+
+```dotenv
+DATABASE_URL=
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+CORS_ORIGIN=https://kanbio.vercel.app
+WEB_URL=https://kanbio.vercel.app
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=
+SMTP_PASSWORD=
+MAIL_FROM=
+LINK_EXPIRATION_HOURS=24
 ```
-src/
-├── application/
-│   ├── entities/<dominio>/   # entity + gateway (puerto) + *.types.ts (DTOs zod)
-│   ├── services/             # firebase.service, project-access.service (+ sus *.module.ts globales)
-│   └── usecases/<dominio>/   # una clase por operación (execute())
-├── infrastructure/
-│   ├── data-access/persistence/  # base-typeorm.repo, database.module, persistence.module,
-│   │                             # y por dominio: *.orm-entity.ts + *.typeorm-repository.ts
-│   └── interfaces/http/
-│       ├── controllers/          # users, projects, sprints, tickets, invitations
-│       └── middlewares/auth/     # firebase-auth.guard, roles.guard, decorators
-├── modules/                  # NestJS feature modules (controller + sus use cases)
-├── config/                   # env-var.ts (enum) + config.ts (zod validate)
-├── app.module.ts  ├── main.ts
-```
-- Use cases dependen de **puertos** (`IUserRepository`, etc.) inyectados por los tokens `RepositoryName.*`.
-- `PersistenceModule` (global) bindea cada token a su repo TypeORM. Los use cases no importan TypeORM.
-- `ProjectAccessService` (global, `@services/access.module`) centraliza los chequeos de membresía.
 
-## Modelo de dominio (tablas)
-- **users**: `id, firebaseUid, email, firstName, lastName, displayName, photoURL, role, createdAt`.
-- **projects**: `id, name, key (prefijo único, mayúsc), description, ticketCounter, createdById`.
-- **project_members**: `id, projectId, userId` (único por par). **Membresía = acceso.**
-- **invitations**: `id, token, email?, role, projectIds[] (jsonb), status(pending/accepted/revoked), createdById, acceptedById?, expiresAt?`.
-- **sprints**: `id, projectId, name, goal?, status(planned/active/completed), startDate?, endDate?`.
-  - **Completar sprint** (`POST /sprints/:id/complete`, `CompleteSprintUseCase`): pone `status=completed`,
-    deja **solo las `done`** archivadas en el sprint y **mueve el resto** (todo/in_progress/qa **y rejected**,
-    que hay que rehacer) según `moveTo`: `'backlog'` (→ `sprintId=null`) o el id de otro sprint no completado
-    del mismo proyecto (valida: existe, mismo proyecto, no completado, distinto del actual; sino 400).
-- **epics**: `id, projectId, name, description?, createdAt, updatedAt`. Una épica agrupa tickets del
-  mismo proyecto; borrarla **desasocia** sus tickets (`epicId=null`), nunca los borra.
-- **tickets**: `id, projectId, key (PROJ-1), title, description?, type(bug/task/story), priority(low/medium/high/critical),
-  storyPoints?, status(todo/in_progress/qa/done/rejected), reporterId, assigneeId?, sprintId?(null=backlog), epicId?,
-  labels[], **attachments (jsonb)**, order`.
-  - **Máquina de estados** (`TICKET_TRANSITIONS`/`canTransition` en `ticket.entity.ts`; la valida
-    `UpdateTicketUseCase`, 400 si es inválida): `todo→in_progress→qa→(done|rejected)`; y `done`/`rejected`
-    pueden volver a `qa` o `in_progress`. Toda tarea nace en `todo`. Mismo→mismo siempre permitido.
-  - `attachments[]` = `{ id, url, storagePath, name, contentType, size, uploadedById, createdAt }`
-    (metadata de archivos subidos a **Cloudinary**; el archivo NO pasa por el back).
+Las mismas variables de mail están configuradas localmente, con `WEB_URL=http://localhost:3000`.
+No exponer contraseñas de aplicación ni connection strings en commits, docs o chat.
 
-## Roles y acceso
-- Rol **global**: solo `superadmin` (todo + gestión de usuarios/proyectos + asigna miembros).
-  `pm`, `dev` y `qa` son roles de `project_members`: PM gestiona ese proyecto y cualquier miembro
-  puede trabajar sus tickets.
-- **El primer usuario que sincroniza queda `superadmin`.** Los demás arrancan `dev` (sin acceso hasta
-  que tengan una membresía de proyecto).
-- **Acceso por proyecto**: registrarse NO da acceso a nada. El superadmin asigna usuarios a proyectos
-  (`project_members`). **Superadmin ve todo** (bypass). El creador de un proyecto queda como miembro.
-- **Onboarding por link** (sin email): superadmin crea una invitación (rol + projectIds) → comparte el
-  `token` → el invitado se loguea/registra y **acepta** → queda con ese rol + membresías.
-- Gating: `list-projects`, proyectos, miembros, sprints y tickets validan membresía; el acceso a una
-  ruta por id siempre se evalúa contra el `projectId` real del recurso. `superadmin` es el único bypass.
-  Crear, actualizar, completar o borrar sprints y actualizar un proyecto requieren PM de ese proyecto.
-  Los adjuntos también chequean acceso al proyecto del ticket.
-- `@Public()` (decorator) saltea auth en una ruta (se usa en `GET /invitations/:token`).
+## Migraciones y despliegue
 
-## Rutas (prefijo `/api`)
-| Método | Ruta | Acceso |
+- La migración `migrations/007_email_change_requests.sql` ya se ejecutó correctamente en Neon producción.
+  Crea `email_change_requests` e índice por `user_id`.
+- En producción no depender de `DB_SYNCHRONIZE`; aplicar scripts en `migrations/` mediante el SQL Editor
+  de Neon antes de desplegar si se agrega una tabla/columna.
+- Render compila con `npm ci && npm run build` y arranca con `npm run start:prod`.
+- Render usa Node y necesita dependencias de build instaladas; `@nestjs/cli` debe seguir disponible para
+  que `nest build` funcione.
+- Vercel despliega el repo frontend. Verificar que la cuenta/autorización de GitHub que pushea sea miembro
+  del proyecto Vercel, o hacer un redeploy manual.
+
+## Rutas relevantes agregadas
+
+| Método | Ruta | Uso |
 | --- | --- | --- |
-| POST | `/users/me` | cualquier user Firebase (sync perfil, `@AllowUnsynced`) |
-| PATCH | `/users/me` | usuario actual (nombre, apellido, foto de perfil) |
-| GET | `/users/me` · `/users` | miembro |
-| PATCH | `/users/:id/role` | superadmin |
-| GET | `/projects` · `/projects/:id` | miembro (filtrado) |
-| POST | `/projects` · PATCH `/projects/:id` | pm/superadmin |
-| DELETE | `/projects/:id` | superadmin |
-| GET/POST/DELETE | `/projects/:projectId/members[/:userId]` | GET miembro · POST/DELETE superadmin |
-| POST/GET | `/invitations` | superadmin |
-| GET | `/invitations/:token` | público |
-| POST | `/invitations/:token/accept` | user logueado |
-| DELETE | `/invitations/:id` | superadmin |
-| GET/POST | `/projects/:projectId/epics` | GET miembro · POST PM/superadmin |
-| PATCH/DELETE | `/epics/:id` | PM/superadmin |
-| GET/POST | `/projects/:projectId/sprints` | GET miembro · POST pm/superadmin |
-| PATCH/DELETE | `/sprints/:id` | pm/superadmin |
-| POST | `/sprints/:id/complete` (body `{ moveTo: 'backlog' \| <sprintId> }`) | pm/superadmin |
-| GET/POST | `/projects/:projectId/tickets` (filtros `sprintId`|`backlog`, `status`, `assigneeId`) | miembro |
-| GET/PATCH/DELETE | `/tickets/:id` | miembro |
-| POST | `/tickets/:id/attachments` | miembro |
-| DELETE | `/tickets/:id/attachments/:attachmentId` | miembro |
+| `POST` | `/users/password-reset` | Envía mail con enlace de Firebase. |
+| `POST` | `/users/me/email-change` | Solicita cambio de email para el usuario actual. |
+| `GET` | `/users/email-change/:token` | Estado público de la solicitud. |
+| `POST` | `/users/email-change/:token/confirm` | Confirma un token de cambio de email. |
+| `PATCH` | `/invitations/:id` | Corrige email, rota token y reenvía invitación. |
+| CRUD | `/tickets/:id/comments` | Comentarios de ticket. |
 
-## Límites de campos (coherentes) — pedido del usuario
-Back (zod) YA aplicado: **ticket** title ≤200, description ≤1000, labels ≤20 c/u ≤40, storyPoints 0–100.
-**project** name ≤80, key ≤50 (mayúsc, `[A-Z0-9_-]`, única), description ≤500.
-**sprint** name ≤80, goal ≤300. **user** first/last ≤60, displayName ≤120. **invitation** expiresInDays 1–90.
-**attachment** name ≤255, url ≤2048, size ≤200MB. ⚠️ Falta reflejar estos límites como `maxLength` en el FRONT.
+## Próxima sesión: checklist corto
 
-## Cómo correrlo
-```bash
-docker compose up -d          # Postgres en host :5442 (mapea 5442:5432)
-npm run start:dev             # http://localhost:4000/api, Swagger en /docs
-```
-`.env` (gitigneado) ya está cargado con el proyecto Firebase real **kanbio** + DB en 5442.
-`CORS_ORIGIN` incluye `http://localhost:3000,3001,53553`.
+1. Probar manualmente comentarios: crear, editar como creador, intentar editar/borrar como otro miembro,
+   y borrar; revisar toasts y refresco.
+2. Probar producción de correo: invitación, recuperación y cambio de email. Confirmar que la invitación
+   y el cambio muestran el plazo de `LINK_EXPIRATION_HOURS` configurado.
+3. Correr typecheck/build de ambos repos antes de commit y revisar el árbol sucio con cuidado: hay cambios
+   acumulados de varias funcionalidades, no usar reset/clean.
+4. Crear commits sin trailers de coautoría, pushear y luego aplicar migraciones nuevas (si las hubiera)
+   antes de actualizar Render/Vercel.
 
-## ⚠️ Gotchas (importantes)
-1. **Postgres nativo en el host**: hay un PostgreSQL 17 **nativo** ocupando `:5432`. Por eso el compose
-   mapea **`5442:5432`** y `DB_PORT=5442`. Si cambiás esto, la app pega contra el PG nativo y falla auth.
-2. **DB_SYNCHRONIZE=true recrea columnas**: al **ampliar un `varchar`** en una tabla con filas, TypeORM
-   sync a veces intenta drop+add y falla (`column X contains null values`). Solución usada: hacer el
-   `ALTER TABLE ... ALTER COLUMN ... TYPE varchar(N)` **a mano** en psql y después arrancar (ya se hizo
-   para `projects.key`→50 y `tickets.title`→200). Para prod: migraciones reales, no synchronize.
-3. **Guards globales**: los guards se registran con `APP_GUARD` en `auth.module.ts` (NO `@UseGuards` por
-   controller — rompía la DI). Swagger `/docs` queda público (no pasa por el router de Nest).
-4. **`patchNestJsSwagger()` sacado** de `main.ts`: `nestjs-zod@4` es incompatible con `@nestjs/swagger@11`.
-   Y `nestjs-zod` **no** es plugin del Nest CLI (se sacó de `nest-cli.json`).
-5. `npm run typecheck` y `npm run build` (webpack) están en **verde**.
-
-## Estado actual de la DB (dev)
-1 superadmin (el dueño), 1 proyecto, 2 tickets. No borrar la DB (se pierde la cuenta superadmin).
-
-## Lo que sigue (backend)
-- ✅ **Roles por proyecto (2026-08-19, sin commit):** `ProjectMember` guarda `pm`/`dev`/`qa`; invitaciones,
-  altas de miembros y el endpoint `PATCH /projects/:projectId/members/:userId/role` lo persisten. El cambio
-  de rol no crea membresías inexistentes. Los PM se validan con `ProjectAccessService.assertManager` y los
-  endpoints de tickets/sprints verifican acceso al recurso real. Solo superadmin puede crear proyectos.
-  Los proyectos nuevos dan al creador rol PM. Typecheck y build de API y web están en verde. Tras reiniciar la
-  API de desarrollo, TypeORM sincroniza la nueva columna nullable `project_members.role`; a las membresías
-  existentes hay que asignarles un rol desde la pestaña Miembros (las no asignadas se tratan como `dev`).
-- ✅ **Épicas (2026-08-19, sin commit):** nueva entidad, rutas y tab de UI. PM/superadmin puede crear,
-  editar o borrar épicas; cualquier miembro las lista y el selector de TicketModal permite asociar o quitar la
-  asociación. API valida que `epicId` pertenezca al proyecto del ticket. Al reiniciar la API, TypeORM crea
-  `epics` y la columna nullable `tickets.epic_id`. Typecheck y builds de ambos repos están en verde.
-- (Opcional) limpieza de archivos en Cloudinary al borrar ticket/proyecto (hoy solo se borra la
-  metadata; el archivo queda huérfano en Cloudinary).
-- Deploy: definir hosting del back (Vercel serverless / Railway / Cloud Run) + Postgres gestionado.

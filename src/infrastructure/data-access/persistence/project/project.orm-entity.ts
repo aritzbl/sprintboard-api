@@ -9,6 +9,9 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'projects' })
+@Index('IDX_projects_active_created_at', ['createdAt'], {
+  where: 'deleted_at IS NULL',
+})
 export class ProjectOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -16,7 +19,12 @@ export class ProjectOrmEntity {
   @Column({ type: 'varchar', length: 80 })
   name!: string;
 
-  @Index({ unique: true })
+  // Only active projects must have a unique key. A partial unique index is
+  // created by the production migration so deleted projects can release it.
+  @Index('IDX_projects_active_key', ['key'], {
+    unique: true,
+    where: 'deleted_at IS NULL',
+  })
   @Column({ type: 'varchar', length: 50 })
   key!: string;
 

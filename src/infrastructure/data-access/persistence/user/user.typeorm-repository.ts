@@ -32,6 +32,31 @@ export class UserTypeOrmRepository
     return found ? this.toDomain(found) : null;
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    const found = await this.repository.findOne({
+      where: { email: email.toLowerCase() },
+    });
+    return found ? this.toDomain(found) : null;
+  }
+
+  async findByIdIncludingDeleted(id: string): Promise<User | null> {
+    const found = await this.repository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+    return found ? this.toDomain(found) : null;
+  }
+
+  async findByFirebaseUidIncludingDeleted(
+    firebaseUid: string,
+  ): Promise<User | null> {
+    const found = await this.repository.findOne({
+      where: { firebaseUid },
+      withDeleted: true,
+    });
+    return found ? this.toDomain(found) : null;
+  }
+
   async findByIds(ids: string[]): Promise<User[]> {
     if (ids.length === 0) return [];
     const rows = await this.repository.find({ where: { id: In(ids) } });
@@ -94,6 +119,11 @@ export class UserTypeOrmRepository
 
   async updateRole(id: string, role: Role): Promise<User | null> {
     await this.repository.update(id, { role });
+    return this.findById(id);
+  }
+
+  async updateEmail(id: string, email: string): Promise<User | null> {
+    await this.repository.update(id, { email: email.toLowerCase() });
     return this.findById(id);
   }
 

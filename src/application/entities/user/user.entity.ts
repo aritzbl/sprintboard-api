@@ -18,4 +18,5 @@ export class User {
   photoURL!: string | null;
   role!: Role;
   createdAt!: Date;
+  deletedAt!: Date | null;
 }

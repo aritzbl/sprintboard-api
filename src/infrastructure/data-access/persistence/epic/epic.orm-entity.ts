@@ -9,6 +9,9 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'epics' })
+@Index('IDX_epics_active_project_created_at', ['projectId', 'createdAt'], {
+  where: 'deleted_at IS NULL',
+})
 export class EpicOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

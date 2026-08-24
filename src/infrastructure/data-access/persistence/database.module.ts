@@ -9,6 +9,8 @@ import { UserOrmEntity } from '@data-access/persistence/user/user.orm-entity';
 import { ProjectMemberOrmEntity } from '@data-access/persistence/project-member/project-member.orm-entity';
 import { InvitationOrmEntity } from '@data-access/persistence/invitation/invitation.orm-entity';
 import { EpicOrmEntity } from '@data-access/persistence/epic/epic.orm-entity';
+import { TicketCommentOrmEntity } from '@data-access/persistence/ticket-comment/ticket-comment.orm-entity';
+import { EmailChangeRequestOrmEntity } from '@data-access/persistence/email-change/email-change-request.orm-entity';
 
 const entities = [
   UserOrmEntity,
@@ -18,6 +20,8 @@ const entities = [
   ProjectMemberOrmEntity,
   InvitationOrmEntity,
   EpicOrmEntity,
+  TicketCommentOrmEntity,
+  EmailChangeRequestOrmEntity,
 ];
 
 /** Wires TypeORM to PostgreSQL using validated configuration. */

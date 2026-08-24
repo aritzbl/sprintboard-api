@@ -41,4 +41,26 @@ export class FirebaseService {
       throw new UnauthorizedException('Invalid or expired authentication token');
     }
   }
+
+  generatePasswordResetLink(email: string): Promise<string> {
+    return getAuth(this.app).generatePasswordResetLink(email);
+  }
+
+  async isEmailAvailable(email: string): Promise<boolean> {
+    try {
+      await getAuth(this.app).getUserByEmail(email);
+      return false;
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code;
+      if (code === 'auth/user-not-found') return true;
+      throw error;
+    }
+  }
+
+  updateUserEmail(firebaseUid: string, email: string): Promise<void> {
+    return getAuth(this.app)
+      .updateUser(firebaseUid, { email })
+      .then(() => undefined);
+  }
+
 }

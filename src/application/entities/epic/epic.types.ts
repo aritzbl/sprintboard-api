@@ -12,6 +12,16 @@ export const EPIC_COLORS = [
   'red',
   'burgundy',
   'pink',
+  'indigo',
+  'sky',
+  'emerald',
+  'lime',
+  'amber',
+  'coral',
+  'rose',
+  'fuchsia',
+  'plum',
+  'brown',
 ] as const;
 const epicColorSchema = z.enum(EPIC_COLORS);
 

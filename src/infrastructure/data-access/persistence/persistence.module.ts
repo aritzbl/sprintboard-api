@@ -15,6 +15,10 @@ import { ProjectMemberTypeOrmRepository } from '@data-access/persistence/project
 import { InvitationTypeOrmRepository } from '@data-access/persistence/invitation/invitation.typeorm-repository';
 import { EpicOrmEntity } from '@data-access/persistence/epic/epic.orm-entity';
 import { EpicTypeOrmRepository } from '@data-access/persistence/epic/epic.typeorm-repository';
+import { TicketCommentOrmEntity } from '@data-access/persistence/ticket-comment/ticket-comment.orm-entity';
+import { TicketCommentTypeOrmRepository } from '@data-access/persistence/ticket-comment/ticket-comment.typeorm-repository';
+import { EmailChangeRequestOrmEntity } from '@data-access/persistence/email-change/email-change-request.orm-entity';
+import { EmailChangeRequestTypeOrmRepository } from '@data-access/persistence/email-change/email-change-request.typeorm-repository';
 
 /**
  * Binds each repository port (RepositoryName.*) to its TypeORM implementation
@@ -32,6 +36,8 @@ import { EpicTypeOrmRepository } from '@data-access/persistence/epic/epic.typeor
       ProjectMemberOrmEntity,
       InvitationOrmEntity,
       EpicOrmEntity,
+      TicketCommentOrmEntity,
+      EmailChangeRequestOrmEntity,
     ]),
   ],
   providers: [
@@ -48,6 +54,14 @@ import { EpicTypeOrmRepository } from '@data-access/persistence/epic/epic.typeor
       useClass: InvitationTypeOrmRepository,
     },
     { provide: RepositoryName.EPIC, useClass: EpicTypeOrmRepository },
+    {
+      provide: RepositoryName.TICKET_COMMENT,
+      useClass: TicketCommentTypeOrmRepository,
+    },
+    {
+      provide: RepositoryName.EMAIL_CHANGE_REQUEST,
+      useClass: EmailChangeRequestTypeOrmRepository,
+    },
   ],
   exports: [
     RepositoryName.USER,
@@ -57,6 +71,8 @@ import { EpicTypeOrmRepository } from '@data-access/persistence/epic/epic.typeor
     RepositoryName.PROJECT_MEMBER,
     RepositoryName.INVITATION,
     RepositoryName.EPIC,
+    RepositoryName.TICKET_COMMENT,
+    RepositoryName.EMAIL_CHANGE_REQUEST,
   ],
 })
 export class PersistenceModule {}

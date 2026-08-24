@@ -12,6 +12,7 @@ export const syncUserSchema = z.object({
   lastName: z.string().trim().min(1).max(60),
   displayName: z.string().trim().min(1).max(120).optional(),
   photoURL: z.string().url().nullable().optional(),
+  invitationToken: z.string().min(1).max(64).optional(),
 });
 export class SyncUserDto extends createZodDto(syncUserSchema) {}
 
@@ -26,3 +27,13 @@ export const updateUserRoleSchema = z.object({
   role: z.enum(ROLES),
 });
 export class UpdateUserRoleDto extends createZodDto(updateUserRoleSchema) {}
+
+export const passwordResetSchema = z.object({ email: z.string().trim().email() });
+export class PasswordResetDto extends createZodDto(passwordResetSchema) {}
+
+export const requestEmailChangeSchema = z.object({
+  email: z.string().trim().email(),
+});
+export class RequestEmailChangeDto extends createZodDto(
+  requestEmailChangeSchema,
+) {}

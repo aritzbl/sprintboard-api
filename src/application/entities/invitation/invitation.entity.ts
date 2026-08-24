@@ -3,7 +3,7 @@ import { Role } from '@entities/user/user.entity';
 export const INVITATION_STATUSES = ['pending', 'accepted', 'revoked'] as const;
 export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 
-/** Roles that can be granted through an invitation (never superadmin). */
+/** Roles granted inside a project invitation. */
 export const INVITABLE_ROLES: readonly Role[] = ['pm', 'dev', 'qa'] as const;
 
 /**

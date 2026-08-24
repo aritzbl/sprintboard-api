@@ -19,4 +19,6 @@ export interface IProjectMemberRepository {
   ): Promise<{ members: Pick<ProjectMember, 'userId' | 'role'>[]; total: number }>;
   /** Remove every membership of a project (used when a project is deleted). */
   removeByProject(projectId: string): Promise<void>;
+  /** Remove every membership of a user when their workspace account is deleted. */
+  removeByUser(userId: string): Promise<void>;
 }

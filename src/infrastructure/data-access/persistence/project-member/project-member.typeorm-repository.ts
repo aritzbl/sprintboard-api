@@ -18,7 +18,7 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
   }
 
   async exists(projectId: string, userId: string): Promise<boolean> {
-    return (await this.repository.count({ where: { projectId, userId } })) > 0;
+    return this.repository.exists({ where: { projectId, userId } });
   }
 
   async find(projectId: string, userId: string): Promise<ProjectMember | null> {
@@ -88,5 +88,9 @@ export class ProjectMemberTypeOrmRepository implements IProjectMemberRepository 
 
   async removeByProject(projectId: string): Promise<void> {
     await this.repository.softDelete({ projectId });
+  }
+
+  async removeByUser(userId: string): Promise<void> {
+    await this.repository.softDelete({ userId });
   }
 }

@@ -5,6 +5,7 @@ import { ListInvitationsUseCase } from '@usecases/invitation/list-invitations.us
 import { RevokeInvitationUseCase } from '@usecases/invitation/revoke-invitation.usecase';
 import { GetInvitationUseCase } from '@usecases/invitation/get-invitation.usecase';
 import { AcceptInvitationUseCase } from '@usecases/invitation/accept-invitation.usecase';
+import { UpdateInvitationEmailUseCase } from '@usecases/invitation/update-invitation-email.usecase';
 
 @Module({
   controllers: [InvitationsController],
@@ -14,6 +15,7 @@ import { AcceptInvitationUseCase } from '@usecases/invitation/accept-invitation.
     RevokeInvitationUseCase,
     GetInvitationUseCase,
     AcceptInvitationUseCase,
+    UpdateInvitationEmailUseCase,
   ],
 })
 export class InvitationModule {}

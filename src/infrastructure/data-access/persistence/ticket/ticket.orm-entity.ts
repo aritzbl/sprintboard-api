@@ -16,6 +16,9 @@ import {
 
 @Entity({ name: 'tickets' })
 @Index(['projectId', 'key'], { unique: true })
+@Index('IDX_tickets_active_project_sprint_order', ['projectId', 'sprintId', 'order', 'createdAt'], {
+  where: 'deleted_at IS NULL',
+})
 export class TicketOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

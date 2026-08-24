@@ -7,6 +7,10 @@ import { UpdateTicketUseCase } from '@usecases/ticket/update-ticket.usecase';
 import { DeleteTicketUseCase } from '@usecases/ticket/delete-ticket.usecase';
 import { AddAttachmentUseCase } from '@usecases/ticket/add-attachment.usecase';
 import { RemoveAttachmentUseCase } from '@usecases/ticket/remove-attachment.usecase';
+import { ListTicketCommentsUseCase } from '@usecases/ticket-comment/list-ticket-comments.usecase';
+import { CreateTicketCommentUseCase } from '@usecases/ticket-comment/create-ticket-comment.usecase';
+import { UpdateTicketCommentUseCase } from '@usecases/ticket-comment/update-ticket-comment.usecase';
+import { DeleteTicketCommentUseCase } from '@usecases/ticket-comment/delete-ticket-comment.usecase';
 
 @Module({
   controllers: [TicketsController],
@@ -18,6 +22,10 @@ import { RemoveAttachmentUseCase } from '@usecases/ticket/remove-attachment.usec
     DeleteTicketUseCase,
     AddAttachmentUseCase,
     RemoveAttachmentUseCase,
+    ListTicketCommentsUseCase,
+    CreateTicketCommentUseCase,
+    UpdateTicketCommentUseCase,
+    DeleteTicketCommentUseCase,
   ],
 })
 export class TicketModule {}

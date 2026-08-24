@@ -24,6 +24,14 @@ export const envSchema = z.object({
   FIREBASE_CLIENT_EMAIL: z.string().min(1, 'FIREBASE_CLIENT_EMAIL is required'),
   FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY is required'),
   CLOUDINARY_CLOUD_NAME: z.string().min(1).default('kpurw60m'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(465),
+  SMTP_SECURE: z.coerce.boolean().default(true),
+  SMTP_USER: z.string().email().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+  WEB_URL: z.string().url().default('http://localhost:3000'),
+  LINK_EXPIRATION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

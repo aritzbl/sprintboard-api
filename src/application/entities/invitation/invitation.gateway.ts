@@ -14,8 +14,11 @@ export interface CreateInvitationData {
 }
 
 export interface UpdateInvitationData {
+  token?: string;
+  email?: string;
   status?: InvitationStatus;
   acceptedById?: string | null;
+  expiresAt?: Date | null;
 }
 
 export interface IInvitationRepository {

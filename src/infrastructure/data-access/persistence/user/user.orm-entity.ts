@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   PrimaryGeneratedColumn,
@@ -8,6 +9,9 @@ import {
 import { Role } from '@entities/user/user.entity';
 
 @Entity({ name: 'users' })
+@Index('IDX_users_role_display_name', ['role', 'displayName'], {
+  where: 'deleted_at IS NULL',
+})
 export class UserOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -36,4 +40,7 @@ export class UserOrmEntity {
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt!: Date | null;
 }

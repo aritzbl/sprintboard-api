@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import {
@@ -21,7 +22,10 @@ import {
 import { CurrentUser } from '@interfaces/http/middlewares/auth/current-user.decorator';
 import { User } from '@entities/user/user.entity';
 import { Invitation } from '@entities/invitation/invitation.entity';
-import { CreateInvitationDto } from '@entities/invitation/invitation.types';
+import {
+  CreateInvitationDto,
+  UpdateInvitationEmailDto,
+} from '@entities/invitation/invitation.types';
 import { CreateInvitationUseCase } from '@usecases/invitation/create-invitation.usecase';
 import { ListInvitationsUseCase } from '@usecases/invitation/list-invitations.usecase';
 import { RevokeInvitationUseCase } from '@usecases/invitation/revoke-invitation.usecase';
@@ -30,6 +34,7 @@ import {
   InvitationView,
 } from '@usecases/invitation/get-invitation.usecase';
 import { AcceptInvitationUseCase } from '@usecases/invitation/accept-invitation.usecase';
+import { UpdateInvitationEmailUseCase } from '@usecases/invitation/update-invitation-email.usecase';
 
 @ApiTags('Invitations')
 @ApiBearerAuth('JWT-auth')
@@ -41,6 +46,7 @@ export class InvitationsController {
     private readonly revokeInvitation: RevokeInvitationUseCase,
     private readonly getInvitation: GetInvitationUseCase,
     private readonly acceptInvitation: AcceptInvitationUseCase,
+    private readonly updateInvitationEmail: UpdateInvitationEmailUseCase,
   ) {}
 
   @Post()
@@ -60,6 +66,16 @@ export class InvitationsController {
   @ApiOperation({ summary: 'List all invitations (superadmin)' })
   list(): Promise<Invitation[]> {
     return this.listInvitations.execute();
+  }
+
+  @Patch(':id')
+  @Roles('superadmin')
+  @ApiOperation({ summary: 'Correct a pending invitation email and resend it' })
+  updateEmail(
+    @Param('id') id: string,
+    @Body() dto: UpdateInvitationEmailDto,
+  ): Promise<Invitation> {
+    return this.updateInvitationEmail.execute(id, dto.email);
   }
 
   @Get(':token')

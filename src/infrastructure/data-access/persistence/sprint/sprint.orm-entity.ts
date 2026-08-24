@@ -10,6 +10,9 @@ import {
 import { SprintStatus } from '@entities/sprint/sprint.entity';
 
 @Entity({ name: 'sprints' })
+@Index('IDX_sprints_active_project_status_created_at', ['projectId', 'status', 'createdAt'], {
+  where: 'deleted_at IS NULL',
+})
 export class SprintOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
