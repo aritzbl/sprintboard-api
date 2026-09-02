@@ -11,6 +11,11 @@ import { EnvVar } from '@config/env-var';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter | null;
+  private readonly mailgun: {
+    apiKey: string;
+    domain: string;
+    endpoint: string;
+  } | null;
   private readonly from: string;
   private readonly linkExpirationHours: number;
 
@@ -18,6 +23,9 @@ export class MailService {
     const host = config.get<string>(EnvVar.SMTP_HOST);
     const user = config.get<string>(EnvVar.SMTP_USER);
     const password = config.get<string>(EnvVar.SMTP_PASSWORD);
+    const mailgunApiKey = config.get<string>(EnvVar.MAILGUN_API_KEY);
+    const mailgunDomain = config.get<string>(EnvVar.MAILGUN_DOMAIN);
+    const mailgunRegion = config.get<string>(EnvVar.MAILGUN_REGION) ?? 'US';
     this.from = config.get<string>(EnvVar.MAIL_FROM) ?? 'Kanbio';
     this.linkExpirationHours = config.getOrThrow<number>(
       EnvVar.LINK_EXPIRATION_HOURS,
@@ -30,6 +38,16 @@ export class MailService {
           auth: { user, pass: password },
         })
       : null;
+    this.mailgun = mailgunApiKey && mailgunDomain
+      ? {
+          apiKey: mailgunApiKey,
+          domain: mailgunDomain,
+          endpoint:
+            mailgunRegion === 'EU'
+              ? 'https://api.eu.mailgun.net'
+              : 'https://api.mailgun.net',
+        }
+      : null;
   }
 
   async send(
@@ -38,6 +56,10 @@ export class MailService {
     text: string,
     html: string,
   ): Promise<void> {
+    if (this.mailgun) {
+      await this.sendWithMailgun(to, subject, text, html);
+      return;
+    }
     if (!this.transporter) {
       throw new ServiceUnavailableException('El envío de correos no está configurado.');
     }
@@ -48,6 +70,41 @@ export class MailService {
       text,
       html,
     });
+  }
+
+  private async sendWithMailgun(
+    to: string,
+    subject: string,
+    text: string,
+    html: string,
+  ): Promise<void> {
+    const mailgun = this.mailgun;
+    if (!mailgun) return;
+
+    const form = new FormData();
+    form.set('from', this.from);
+    form.set('to', to);
+    form.set('subject', subject);
+    form.set('text', text);
+    form.set('html', html);
+
+    const response = await fetch(
+      `${mailgun.endpoint}/v3/${encodeURIComponent(mailgun.domain)}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`api:${mailgun.apiKey}`).toString('base64')}`,
+        },
+        body: form,
+      },
+    );
+
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 500);
+      throw new ServiceUnavailableException(
+        `Mailgun no pudo enviar el correo (${response.status}): ${detail}`,
+      );
+    }
   }
 
   async sendInvitation(input: {
