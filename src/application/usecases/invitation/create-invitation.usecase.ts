@@ -7,7 +7,6 @@ import { IInvitationRepository } from '@entities/invitation/invitation.gateway';
 import { CreateInvitationDto } from '@entities/invitation/invitation.types';
 import { Role } from '@entities/user/user.entity';
 import { IUserRepository } from '@entities/user/user.gateway';
-import { MailService } from '@services/mail.service';
 import { FirebaseService } from '@services/firebase.service';
 import { ConfigService } from '@nestjs/config';
 import { EnvVar } from '@config/env-var';
@@ -21,7 +20,6 @@ export class CreateInvitationUseCase {
     private readonly projects: IProjectRepository,
     @Inject(RepositoryName.USER)
     private readonly users: IUserRepository,
-    private readonly mail: MailService,
     private readonly firebase: FirebaseService,
     private readonly config: ConfigService,
   ) {}
@@ -48,22 +46,19 @@ export class CreateInvitationUseCase {
     );
     const expiresAt = new Date(Date.now() + expirationHours * 60 * 60 * 1000);
 
-    const invitation = await this.invitations.create({
-      token: randomBytes(24).toString('base64url'),
-      email,
-      role: dto.role as Role,
-      projectIds: dto.projectIds,
-      createdById,
-      expiresAt,
-    });
-    const projects = await this.projects.findByIds(dto.projectIds);
-    const url = `${this.config.getOrThrow<string>(EnvVar.WEB_URL)}/invite/${invitation.token}`;
-    this.mail.sendInvitationInBackground({
-      to: invitation.email!,
-      url,
-      role: invitation.role === 'superadmin' ? 'administrador' : invitation.role,
-      projectNames: projects.map((project) => project.name),
-    });
-    return invitation;
+    await this.firebase.createInvitedUser(email);
+    try {
+      return await this.invitations.create({
+        token: randomBytes(24).toString('base64url'),
+        email,
+        role: dto.role as Role,
+        projectIds: dto.projectIds,
+        createdById,
+        expiresAt,
+      });
+    } catch (error) {
+      await this.firebase.deleteUserByEmail(email);
+      throw error;
+    }
   }
 }

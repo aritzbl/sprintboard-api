@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
@@ -54,6 +55,24 @@ export class FirebaseService {
       const code = (error as { code?: string }).code;
       if (code === 'auth/user-not-found') return true;
       throw error;
+    }
+  }
+
+  async createInvitedUser(email: string): Promise<void> {
+    await getAuth(this.app).createUser({
+      email,
+      password: randomBytes(32).toString('base64url'),
+      emailVerified: false,
+    });
+  }
+
+  async deleteUserByEmail(email: string): Promise<void> {
+    try {
+      const user = await getAuth(this.app).getUserByEmail(email);
+      await getAuth(this.app).deleteUser(user.uid);
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code;
+      if (code !== 'auth/user-not-found') throw error;
     }
   }
 
