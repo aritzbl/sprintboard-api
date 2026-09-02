@@ -27,8 +27,6 @@ export class MailService {
           host,
           port: config.get<number>(EnvVar.SMTP_PORT) ?? 465,
           secure: config.get<boolean>(EnvVar.SMTP_SECURE) ?? true,
-          // Render's network has no IPv6 egress; Gmail otherwise resolves to IPv6 first.
-          family: 4,
           auth: { user, pass: password },
         })
       : null;
