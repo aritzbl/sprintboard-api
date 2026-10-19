@@ -1,0 +1,22 @@
+# systemd unit: on every boot, points the DNS record at the new public IP.
+# deploy/setup-server.sh installs it as /etc/systemd/system/kanbio-dns.service.
+#
+#   sudo systemctl status kanbio-dns      # last result
+#   sudo systemctl start kanbio-dns       # run it now
+
+[Unit]
+Description=Kanbio: point the Cloudflare A record at the current public IP
+After=network-online.target docker.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart=/home/ec2-user/deploy/update-dns.sh
+# The network can take a few seconds to reach out after boot.
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

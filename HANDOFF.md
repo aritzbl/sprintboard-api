@@ -5,14 +5,14 @@
 ## Producto y stack
 
 Kanbio es un gestor de proyectos tipo mini-Jira: proyectos, miembros por proyecto, épicas, sprints,
-tickets, evidencia y comentarios. Backend: NestJS 11, TypeORM, PostgreSQL/Neon y Firebase Admin.
+tickets, evidencia y comentarios. Backend: NestJS 11, TypeORM, PostgreSQL y Firebase Admin.
 La API usa el prefijo `/api`; Swagger local está en `/docs`.
 
-Producción:
-
-- API Render: `https://kanbio-api.onrender.com`
-- Base de datos Neon: proyecto `wispy-sound-06582223`, branch `br-lively-surf-acd90x5p`.
-- Front: `https://kanbio.vercel.app`
+Producción: **una VM EC2** con dominio propio detrás de Cloudflare: Caddy + API + web + Postgres en
+contenedores (`compose.prod.yml`, todo en DEPLOY.md, mismo esquema que tublood). Hasta completar la
+migración sigue el setup viejo: API en Render (`https://kanbio-api.onrender.com`), base en Neon (proyecto
+`wispy-sound-06582223`, branch `br-lively-surf-acd90x5p`, hay que migrarla con `pg_dump`, DEPLOY.md §4) y
+front en `https://kanbio.vercel.app`.
 
 Local:
 
@@ -102,47 +102,24 @@ Todas las invitaciones y confirmaciones de cambio de email usan `LINK_EXPIRATION
 producción y local es `24`. El tiempo real **y el texto de los mails** salen de esa variable, no de un
 `24` hardcodeado. La recuperación de contraseña es la única excepción porque Firebase controla su TTL.
 
-Variables de Render necesarias (sin valores secretos en este documento):
+Variables de producción: `.env.prod.example` (el `.env` de la VM). `compose.prod.yml` deriva `WEB_URL` y
+`CORS_ORIGIN` de `SITE_ADDRESS` y le pasa a cada contenedor solo lo que usa.
 
-```dotenv
-DATABASE_URL=
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY=
-CORS_ORIGIN=https://kanbio.vercel.app
-WEB_URL=https://kanbio.vercel.app
-IS_EMAIL_MOCKED=false
-EMAIL_PROVIDER=smtp          # o ses
-MAIL_FROM=
-# smtp (Gmail hoy; Brevo: smtp-relay.brevo.com / 587 / SMTP_SECURE=false)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=
-SMTP_PASSWORD=
-# ses: AWS_REGION= y credenciales opcionales (ver arriba)
-LINK_EXPIRATION_HOURS=24
-```
-
-Localmente: `IS_EMAIL_MOCKED=true` + Mailpit, o las mismas variables reales con `WEB_URL=http://localhost:3000`.
 No exponer contraseñas de aplicación ni connection strings en commits, docs o chat.
 
 ## Migraciones y despliegue
 
-- La migración `migrations/007_email_change_requests.sql` ya se ejecutó correctamente en Neon producción.
-  Crea `email_change_requests` e índice por `user_id`.
-- En producción no depender de `DB_SYNCHRONIZE`; aplicar scripts en `migrations/` mediante el SQL Editor
-  de Neon antes de desplegar si se agrega una tabla/columna.
+- Cada cambio de esquema va en un `migrations/NNN_*.sql` nuevo e **idempotente**. En la VM los aplica el
+  servicio `migrate` del deploy (`scripts/migrate.sh`, registra en `schema_migrations`); con la base vacía
+  crea el esquema desde las entidades (`node dist/main.js --sync-schema`). En prod `DB_SYNCHRONIZE=false`.
 - ⚠️ Fix (2026-10-19): `SHOW_SWAGGER` y `DB_SYNCHRONIZE` usaban `z.coerce.boolean()`, que lee `"false"` como
   `true` → en prod Swagger estaba expuesto y TypeORM sincronizaba el esquema pese a `DB_SYNCHRONIZE=false`.
   Ahora usan `envBoolean`. Consecuencia: desde este deploy prod **ya no** crea columnas solo; lo que faltaba
   migración se agregó como `008_project_member_role.sql` (`project_members.role`, idempotente) → correrla en
   Neon antes de desplegar. Si aparece `column ... does not exist`, es otra columna que solo existía por el sync.
-- Render compila con `npm ci && npm run build` y arranca con `npm run start:prod`.
-- Render usa Node y necesita dependencias de build instaladas; `@nestjs/cli` debe seguir disponible para
-  que `nest build` funcione.
-- Vercel despliega el repo frontend. Verificar que la cuenta/autorización de GitHub que pushea sea miembro
-  del proyecto Vercel, o hacer un redeploy manual.
+- CI (`.github/workflows/ci.yml`, en los dos repos) publica imágenes arm64 en ghcr.io en cada push a main;
+  el deploy es manual: `ssh ... ./deploy/deploy.sh` (pull + migrate + up). `package-lock.json` debe seguir
+  sincronizado (la imagen usa `npm ci`): tras agregar deps con pnpm, `npm install --package-lock-only`.
 
 ## Rutas relevantes agregadas
 
@@ -164,5 +141,5 @@ No exponer contraseñas de aplicación ni connection strings en commits, docs o 
 3. Correr typecheck/build de ambos repos antes de commit y revisar el árbol sucio con cuidado: hay cambios
    acumulados de varias funcionalidades, no usar reset/clean.
 4. Crear commits sin trailers de coautoría, pushear y luego aplicar migraciones nuevas (si las hubiera)
-   antes de actualizar Render/Vercel.
+   y desplegar en la VM con `deploy/deploy.sh`.
 

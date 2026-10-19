@@ -1,0 +1,183 @@
+# Production stack for ONE machine (EC2 t4g, arm64), same layout as tublood's
+# and Oxavita's:
+#
+#   caddy    -> automatic HTTPS and the only entry point. Routes /api/* to the
+#               API and everything else to the web.
+#   web      -> Next.js (standalone), image published by sprintboard-web CI.
+#   api      -> NestJS, image published by this repo's CI.
+#   migrate  -> scripts/migrate.sh, once, before the new api starts.
+#   postgres -> on the same VM, data in a volume. When needed, swap it for RDS
+#               by pointing DB_HOST elsewhere and deleting this service.
+#   mailpit  -> test inbox: with IS_EMAIL_MOCKED=true mail stays here.
+#
+# Evidence and profile photos live in S3, reached with the instance's IAM role:
+# no AWS keys on the VM.
+#
+# The VM has no repositories: only this file, deploy/ and a `.env` (see
+# .env.prod.example). Nothing is built here: CI publishes the images and the
+# deploy is
+#
+#   ./deploy/deploy.sh
+#
+# which pulls + migrates + restarts and leaves in .env the IMAGE_* running.
+#
+# Compose interpolates `.env` (IMAGE_*, SITE_ADDRESS, secrets) and each
+# container gets only the variables it uses: the Cloudflare token never reaches
+# api/postgres/migrate. Mind empty values: Compose passes "" for an unset
+# variable, which fails the API's validation for URLs and numbers, so those get
+# a default or are required.
+
+x-api-env: &api-env
+  NODE_ENV: production
+  PORT: '4000'
+  SHOW_SWAGGER: 'false'
+  WEB_URL: https://${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+  CORS_ORIGIN: https://${SITE_ADDRESS}
+  LINK_EXPIRATION_HOURS: ${LINK_EXPIRATION_HOURS:-24}
+  NODE_OPTIONS: ${API_NODE_OPTIONS:---max-old-space-size=384}
+  # Database: one source, the POSTGRES_* of the container.
+  DB_HOST: postgres
+  DB_PORT: '5432'
+  DB_USERNAME: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+  DB_NAME: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+  DB_SYNCHRONIZE: 'false'
+  # Firebase Admin (verifies the users' ID tokens).
+  FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?set FIREBASE_PROJECT_ID in .env}
+  FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:?set FIREBASE_CLIENT_EMAIL in .env}
+  FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:?set FIREBASE_PRIVATE_KEY in .env}
+  # Object storage: the instance role provides the credentials.
+  S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env}
+  S3_REGION: ${S3_REGION:?set S3_REGION in .env}
+  S3_KEY_PREFIX: ${S3_KEY_PREFIX:-prod}
+  S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?set S3_PUBLIC_BASE_URL in .env}
+  # Email: Mailpit (IS_EMAIL_MOCKED=true) or EMAIL_PROVIDER (smtp/Brevo or ses).
+  IS_EMAIL_MOCKED: ${IS_EMAIL_MOCKED:-false}
+  MAILPIT_URL: smtp://mailpit:1025
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
+  MAIL_FROM: ${MAIL_FROM:?set MAIL_FROM in .env}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  AWS_REGION: ${AWS_REGION:-}
+  SES_ROLE_ARN: ${SES_ROLE_ARN:-}
+
+services:
+  postgres:
+    # Same major version as the database you restore from (Neon: SHOW server_version).
+    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    # No `ports`: only reachable inside Docker's network.
+    volumes: ['pg-data:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      retries: 10
+    # Shares a small VM with two Node processes: Postgres needs no more.
+    command: ['postgres', '-c', 'shared_buffers=128MB', '-c', 'max_connections=50']
+
+  migrate:
+    image: ${IMAGE_API:?set IMAGE_API in .env}
+    command: ['sh', 'scripts/migrate.sh']
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    image: ${IMAGE_API:?set IMAGE_API in .env}
+    restart: unless-stopped
+    environment:
+      <<: *api-env
+    # No `ports`: only Caddy reaches it.
+    expose: ['4000']
+    healthcheck:
+      # 127.0.0.1, not localhost: it may resolve to ::1.
+      test: ['CMD', 'node', '-e',
+             "fetch('http://127.0.0.1:4000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: ${IMAGE_WEB:?set IMAGE_WEB in .env}
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: ${WEB_NODE_OPTIONS:---max-old-space-size=256}
+    expose: ['3000']
+    healthcheck:
+      test: ['CMD', 'node', '-e',
+             "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    # Official Caddy + Cloudflare DNS module, to get the certificate through
+    # DNS-01 behind Cloudflare's proxy (see deploy/Caddyfile).
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    # So `trusted_proxies cloudflare` can refresh Cloudflare's IP ranges.
+    cap_add: [NET_ADMIN]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      CF_API_TOKEN: ${CF_API_TOKEN:?set CF_API_TOKEN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+  # Test inbox. With IS_EMAIL_MOCKED=true invitations and links stay here and
+  # reach nobody; otherwise mail goes out through EMAIL_PROVIDER. Always on, so
+  # choosing is one .env variable. The UI listens on the VM's localhost only:
+  # its links open accounts.
+  #
+  #   ssh -L 8026:localhost:8025 ec2-user@IP   ->  http://localhost:8026
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports: ['127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025']
+
+  # Database web admin. NOT exposed to the internet: localhost of the VM only,
+  # through an SSH tunnel. `profiles` keeps it out of `up -d`.
+  #
+  #   docker compose -f compose.prod.yml --profile tools up -d adminer
+  #   ssh -L 8080:localhost:8080 ec2-user@IP   ->  http://localhost:8080
+  #   docker compose -f compose.prod.yml --profile tools stop adminer
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    profiles: ['tools']
+    ports: ['127.0.0.1:8080:8080']
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  caddy-data:
+  caddy-config:
