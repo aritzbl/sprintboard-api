@@ -1,35 +1,49 @@
 import {
+  BadGatewayException,
   Injectable,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { fromTemporaryCredentials } from '@aws-sdk/credential-providers';
 import nodemailer, { Transporter } from 'nodemailer';
 import { EnvVar } from '@config/env-var';
+
+/** `mailpit` never leaves the local inbox; `smtp` and `ses` really deliver. */
+type MailProvider = 'mailpit' | 'smtp' | 'ses';
+
+// Mail goes out inside a request: better a clear error than a hung request.
+const TIMEOUT_MS = 10_000;
+const SMTP_TIMEOUTS = {
+  connectionTimeout: TIMEOUT_MS,
+  greetingTimeout: TIMEOUT_MS,
+  socketTimeout: TIMEOUT_MS,
+};
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
+  private readonly provider: MailProvider;
   private readonly transporter: Transporter | null;
   private readonly from: string;
   private readonly linkExpirationHours: number;
 
   constructor(config: ConfigService) {
-    const host = config.get<string>(EnvVar.SMTP_HOST);
-    const user = config.get<string>(EnvVar.SMTP_USER);
-    const password = config.get<string>(EnvVar.SMTP_PASSWORD);
-    this.from = config.get<string>(EnvVar.MAIL_FROM) ?? 'Kanbio';
+    this.from =
+      config.get<string>(EnvVar.MAIL_FROM) ?? 'Kanbio <no-reply@kanbio.local>';
     this.linkExpirationHours = config.getOrThrow<number>(
       EnvVar.LINK_EXPIRATION_HOURS,
     );
-    this.transporter = host && user && password
-      ? nodemailer.createTransport({
-          host,
-          port: config.get<number>(EnvVar.SMTP_PORT) ?? 465,
-          secure: config.get<boolean>(EnvVar.SMTP_SECURE) ?? true,
-          auth: { user, pass: password },
-        })
-      : null;
+    this.provider = config.get<boolean>(EnvVar.IS_EMAIL_MOCKED)
+      ? 'mailpit'
+      : config.getOrThrow<'smtp' | 'ses'>(EnvVar.EMAIL_PROVIDER);
+    this.transporter = this.createTransport(config);
+    this.logger.log(
+      this.transporter
+        ? `Email provider: ${this.provider}`
+        : 'Email delivery is not configured (SMTP_HOST is empty).',
+    );
   }
 
   async send(
@@ -41,13 +55,97 @@ export class MailService {
     if (!this.transporter) {
       throw new ServiceUnavailableException('El envío de correos no está configurado.');
     }
-    await this.transporter.sendMail({
-      from: this.from,
-      to,
-      subject,
-      text,
-      html,
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to,
+        subject,
+        text,
+        html,
+      });
+    } catch (error) {
+      // The subject is fine to log, the body is not: it carries the link.
+      this.logger.error(
+        `mail.send_failed to=${to} subject="${subject}" provider=${this.provider}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadGatewayException('No se pudo enviar el correo.');
+    }
+    this.logger.log(
+      `mail.sent to=${to} subject="${subject}" provider=${this.provider}`,
+    );
+  }
+
+  /**
+   * Same selection as Oxavita's mailer: IS_EMAIL_MOCKED → Mailpit, otherwise
+   * EMAIL_PROVIDER. null means SMTP is not configured (send() answers 503).
+   */
+  private createTransport(config: ConfigService): Transporter | null {
+    if (this.provider === 'mailpit') {
+      const mailpit = new URL(config.getOrThrow<string>(EnvVar.MAILPIT_URL));
+      return nodemailer.createTransport({
+        host: mailpit.hostname,
+        port: Number(mailpit.port) || 1025,
+        secure: false,
+        ignoreTLS: true, // Mailpit speaks plain SMTP, without auth
+        ...SMTP_TIMEOUTS,
+      });
+    }
+
+    if (this.provider === 'ses') {
+      // Without a region of its own, the SDK resolves it (AWS_REGION, profile…).
+      const region = config.get<string>(EnvVar.AWS_REGION) || undefined;
+      const sesClient = new SESv2Client({
+        region,
+        credentials: this.sesCredentials(config, region),
+        maxAttempts: 2,
+        requestHandler: {
+          connectionTimeout: TIMEOUT_MS,
+          requestTimeout: TIMEOUT_MS,
+        },
+      });
+      return nodemailer.createTransport({ SES: { sesClient, SendEmailCommand } });
+    }
+
+    const host = config.get<string>(EnvVar.SMTP_HOST);
+    if (!host) return null;
+    const user = config.get<string>(EnvVar.SMTP_USER);
+    const secure = config.get<boolean>(EnvVar.SMTP_SECURE) ?? false;
+    return nodemailer.createTransport({
+      host,
+      port: config.getOrThrow<number>(EnvVar.SMTP_PORT),
+      secure,
+      // STARTTLS with the server certificate verified (nodemailer's default):
+      // otherwise the password goes to whoever sits in the middle.
+      requireTLS: !secure && config.get<boolean>(EnvVar.SMTP_STARTTLS) !== false,
+      auth: user
+        ? { user, pass: config.get<string>(EnvVar.SMTP_PASSWORD) }
+        : undefined,
+      ...SMTP_TIMEOUTS,
     });
+  }
+
+  /** Explicit keys, else a role to assume, else the default chain (instance role). */
+  private sesCredentials(config: ConfigService, region?: string) {
+    const accessKeyId = config.get<string>(EnvVar.SES_ACCESS_KEY_ID);
+    const secretAccessKey = config.get<string>(EnvVar.SES_SECRET_ACCESS_KEY);
+    if (accessKeyId && secretAccessKey) return { accessKeyId, secretAccessKey };
+
+    const roleArn = config.get<string>(EnvVar.SES_ROLE_ARN);
+    if (roleArn) {
+      // Refreshes itself before expiring, unlike a one-off AssumeRole call.
+      return fromTemporaryCredentials({
+        params: {
+          RoleArn: roleArn,
+          RoleSessionName: config.getOrThrow<string>(
+            EnvVar.SES_ROLE_SESSION_NAME,
+          ),
+        },
+        clientConfig: { region },
+      });
+    }
+    return undefined;
   }
 
   async sendInvitation(input: {

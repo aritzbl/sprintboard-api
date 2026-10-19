@@ -47,7 +47,25 @@ Local:
 
 ## Email y enlaces
 
-Se agregó envío SMTP con Gmail mediante `nodemailer` y plantillas HTML de Kanbio:
+Envío con `nodemailer` y plantillas HTML de Kanbio (`src/application/services/mail.service.ts`).
+El proveedor se elige por ENV, mismo esquema que Oxavita:
+
+- `IS_EMAIL_MOCKED=true` → **Mailpit** (`MAILPIT_URL`, por defecto `smtp://localhost:1026`), el buzón local
+  de `compose.yml` (`docker compose up -d mailpit`, UI en http://localhost:8026). No sale nada afuera.
+  Puertos 1026/8026 porque Oxavita/tublood usan 1025/8025.
+- Si no, `EMAIL_PROVIDER`:
+  - `smtp` (default) → cualquier SMTP: Brevo (`smtp-relay.brevo.com:587`, `SMTP_SECURE=false`,
+    `SMTP_STARTTLS=true`, la clave es la *SMTP key*) o Gmail (`465`, `SMTP_SECURE=true`, app password).
+    Sin `SMTP_HOST` → envío no configurado (503).
+  - `ses` → Amazon SES por la API (`@aws-sdk/client-sesv2` vía transporte SES de nodemailer). Credenciales
+    opcionales: `SES_ACCESS_KEY_ID`+`SES_SECRET_ACCESS_KEY` (sólo pruebas), si no `SES_ROLE_ARN` (AssumeRole
+    con refresh automático), si no la cadena por defecto (rol IAM de la instancia). `AWS_REGION` opcional.
+- `MAIL_FROM`: remitente verificado por el proveedor. Timeout de 10 s; un fallo de envío loguea
+  `mail.send_failed` (asunto sí, cuerpo no: lleva el enlace) y responde 502.
+- Booleanos de mail (`IS_EMAIL_MOCKED`, `SMTP_SECURE`, `SMTP_STARTTLS`) usan `envBoolean` en `config.ts`:
+  `"false"` es false (con `z.coerce.boolean()` sería true).
+
+Flujos que mandan mail:
 
 - Invitación por email (incluye rol y proyectos).
 - Recuperación de contraseña: el enlace lo genera Firebase; su vencimiento lo controla Firebase.
@@ -68,16 +86,20 @@ FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 CORS_ORIGIN=https://kanbio.vercel.app
 WEB_URL=https://kanbio.vercel.app
+IS_EMAIL_MOCKED=false
+EMAIL_PROVIDER=smtp          # o ses
+MAIL_FROM=
+# smtp (Gmail hoy; Brevo: smtp-relay.brevo.com / 587 / SMTP_SECURE=false)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=
 SMTP_PASSWORD=
-MAIL_FROM=
+# ses: AWS_REGION= y credenciales opcionales (ver arriba)
 LINK_EXPIRATION_HOURS=24
 ```
 
-Las mismas variables de mail están configuradas localmente, con `WEB_URL=http://localhost:3000`.
+Localmente: `IS_EMAIL_MOCKED=true` + Mailpit, o las mismas variables reales con `WEB_URL=http://localhost:3000`.
 No exponer contraseñas de aplicación ni connection strings en commits, docs o chat.
 
 ## Migraciones y despliegue
@@ -86,6 +108,11 @@ No exponer contraseñas de aplicación ni connection strings en commits, docs o 
   Crea `email_change_requests` e índice por `user_id`.
 - En producción no depender de `DB_SYNCHRONIZE`; aplicar scripts en `migrations/` mediante el SQL Editor
   de Neon antes de desplegar si se agrega una tabla/columna.
+- ⚠️ Fix (2026-10-19): `SHOW_SWAGGER` y `DB_SYNCHRONIZE` usaban `z.coerce.boolean()`, que lee `"false"` como
+  `true` → en prod Swagger estaba expuesto y TypeORM sincronizaba el esquema pese a `DB_SYNCHRONIZE=false`.
+  Ahora usan `envBoolean`. Consecuencia: desde este deploy prod **ya no** crea columnas solo; lo que faltaba
+  migración se agregó como `008_project_member_role.sql` (`project_members.role`, idempotente) → correrla en
+  Neon antes de desplegar. Si aparece `column ... does not exist`, es otra columna que solo existía por el sync.
 - Render compila con `npm ci && npm run build` y arranca con `npm run start:prod`.
 - Render usa Node y necesita dependencias de build instaladas; `@nestjs/cli` debe seguir disponible para
   que `nest build` funcione.
