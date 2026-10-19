@@ -13,7 +13,17 @@ services:
         value: production
       - key: SHOW_SWAGGER
         value: "false"
-      - key: CLOUDINARY_CLOUD_NAME
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_KEY_PREFIX
+        value: prod
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
         sync: false
       - key: DATABASE_URL
         sync: false

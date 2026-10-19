@@ -6,6 +6,8 @@ import { GetTicketUseCase } from '@usecases/ticket/get-ticket.usecase';
 import { UpdateTicketUseCase } from '@usecases/ticket/update-ticket.usecase';
 import { DeleteTicketUseCase } from '@usecases/ticket/delete-ticket.usecase';
 import { AddAttachmentUseCase } from '@usecases/ticket/add-attachment.usecase';
+import { CreateAttachmentUploadUseCase } from '@usecases/ticket/create-attachment-upload.usecase';
+import { TicketPresenter } from '@interfaces/http/presenters/ticket.presenter';
 import { RemoveAttachmentUseCase } from '@usecases/ticket/remove-attachment.usecase';
 import { ListTicketCommentsUseCase } from '@usecases/ticket-comment/list-ticket-comments.usecase';
 import { CreateTicketCommentUseCase } from '@usecases/ticket-comment/create-ticket-comment.usecase';
@@ -21,6 +23,8 @@ import { DeleteTicketCommentUseCase } from '@usecases/ticket-comment/delete-tick
     UpdateTicketUseCase,
     DeleteTicketUseCase,
     AddAttachmentUseCase,
+    CreateAttachmentUploadUseCase,
+    TicketPresenter,
     RemoveAttachmentUseCase,
     ListTicketCommentsUseCase,
     CreateTicketCommentUseCase,

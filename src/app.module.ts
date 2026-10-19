@@ -4,6 +4,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { validateEnv } from '@config/config';
 import { FirebaseModule } from '@services/firebase.module';
+import { StorageModule } from '@services/storage.module';
 import { AccessModule } from '@services/access.module';
 import { DatabaseModule } from '@data-access/persistence/database.module';
 import { PersistenceModule } from '@data-access/persistence/persistence.module';
@@ -20,6 +21,7 @@ import { HealthController } from '@interfaces/http/controllers/health.controller
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     FirebaseModule,
+    StorageModule,
     AccessModule,
     DatabaseModule,
     PersistenceModule,

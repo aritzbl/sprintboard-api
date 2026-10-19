@@ -24,6 +24,7 @@ import { TicketComment } from '@entities/ticket-comment/ticket-comment.entity';
 import { TicketFilters } from '@entities/ticket/ticket.gateway';
 import {
   CreateAttachmentDto,
+  CreateAttachmentUploadDto,
   CreateTicketDto,
   UpdateTicketDto,
 } from '@entities/ticket/ticket.types';
@@ -37,11 +38,16 @@ import { GetTicketUseCase } from '@usecases/ticket/get-ticket.usecase';
 import { UpdateTicketUseCase } from '@usecases/ticket/update-ticket.usecase';
 import { DeleteTicketUseCase } from '@usecases/ticket/delete-ticket.usecase';
 import { AddAttachmentUseCase } from '@usecases/ticket/add-attachment.usecase';
+import {
+  AttachmentUpload,
+  CreateAttachmentUploadUseCase,
+} from '@usecases/ticket/create-attachment-upload.usecase';
 import { RemoveAttachmentUseCase } from '@usecases/ticket/remove-attachment.usecase';
 import { ListTicketCommentsUseCase } from '@usecases/ticket-comment/list-ticket-comments.usecase';
 import { CreateTicketCommentUseCase } from '@usecases/ticket-comment/create-ticket-comment.usecase';
 import { UpdateTicketCommentUseCase } from '@usecases/ticket-comment/update-ticket-comment.usecase';
 import { DeleteTicketCommentUseCase } from '@usecases/ticket-comment/delete-ticket-comment.usecase';
+import { TicketPresenter } from '@interfaces/http/presenters/ticket.presenter';
 
 // Collection routes are nested under a project; item routes live under /tickets.
 @ApiTags('Tickets')
@@ -55,11 +61,13 @@ export class TicketsController {
     private readonly updateTicket: UpdateTicketUseCase,
     private readonly deleteTicket: DeleteTicketUseCase,
     private readonly addAttachment: AddAttachmentUseCase,
+    private readonly createAttachmentUpload: CreateAttachmentUploadUseCase,
     private readonly removeAttachment: RemoveAttachmentUseCase,
     private readonly listTicketComments: ListTicketCommentsUseCase,
     private readonly createTicketComment: CreateTicketCommentUseCase,
     private readonly updateTicketComment: UpdateTicketCommentUseCase,
     private readonly deleteTicketComment: DeleteTicketCommentUseCase,
+    private readonly presenter: TicketPresenter,
   ) {}
 
   @Get('projects/:projectId/tickets')
@@ -73,7 +81,7 @@ export class TicketsController {
   })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'assigneeId', required: false })
-  list(
+  async list(
     @Param('projectId') projectId: string,
     @CurrentUser() user: User,
     @Query('sprintId') sprintId?: string,
@@ -91,7 +99,9 @@ export class TicketsController {
     if (epicId !== undefined) {
       filters.epicId = epicId === 'none' || epicId === 'null' ? null : epicId;
     }
-    return this.listTickets.execute(projectId, user, filters);
+    return this.presenter.many(
+      await this.listTickets.execute(projectId, user, filters),
+    );
   }
 
   @Post('projects/:projectId/tickets')
@@ -99,19 +109,24 @@ export class TicketsController {
     summary: 'Create a ticket (any member); the reporter is the caller',
   })
   @ApiResponse({ status: 201, description: 'Ticket created' })
-  create(
+  async create(
     @Param('projectId') projectId: string,
     @Body() dto: CreateTicketDto,
     @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.createTicket.execute(projectId, dto, user);
+    return this.presenter.one(
+      await this.createTicket.execute(projectId, dto, user),
+    );
   }
 
   @Get('tickets/:id')
   @ApiOperation({ summary: 'Get a ticket by id' })
   @ApiResponse({ status: 404, description: 'Ticket not found' })
-  getOne(@Param('id') id: string, @CurrentUser() user: User): Promise<Ticket> {
-    return this.getTicket.execute(id, user);
+  async getOne(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<Ticket> {
+    return this.presenter.one(await this.getTicket.execute(id, user));
   }
 
   @Patch('tickets/:id')
@@ -119,12 +134,12 @@ export class TicketsController {
     summary: 'Update a ticket: move status, assign, reorder, edit fields',
   })
   @ApiResponse({ status: 404, description: 'Ticket not found' })
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateTicketDto,
     @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.updateTicket.execute(id, dto, user);
+    return this.presenter.one(await this.updateTicket.execute(id, dto, user));
   }
 
   @Delete('tickets/:id')
@@ -136,27 +151,43 @@ export class TicketsController {
     return this.deleteTicket.execute(id, user);
   }
 
+  @Post('tickets/:id/attachments/upload-url')
+  @ApiOperation({
+    summary:
+      'Presigned S3 URL to PUT one piece of evidence; attach the key afterwards',
+  })
+  @ApiResponse({ status: 201, description: 'Upload URL created' })
+  uploadUrl(
+    @Param('id') id: string,
+    @Body() dto: CreateAttachmentUploadDto,
+    @CurrentUser() user: User,
+  ): Promise<AttachmentUpload> {
+    return this.createAttachmentUpload.execute(id, dto, user);
+  }
+
   @Post('tickets/:id/attachments')
   @ApiOperation({
-    summary: 'Attach evidence (photo/video metadata) to a ticket',
+    summary: 'Attach evidence already uploaded to S3 (checked against the bucket)',
   })
   @ApiResponse({ status: 201, description: 'Attachment added' })
-  attach(
+  async attach(
     @Param('id') id: string,
     @Body() dto: CreateAttachmentDto,
     @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.addAttachment.execute(id, dto, user);
+    return this.presenter.one(await this.addAttachment.execute(id, dto, user));
   }
 
   @Delete('tickets/:id/attachments/:attachmentId')
   @ApiOperation({ summary: 'Remove an attachment from a ticket' })
-  detach(
+  async detach(
     @Param('id') id: string,
     @Param('attachmentId') attachmentId: string,
     @CurrentUser() user: User,
   ): Promise<Ticket> {
-    return this.removeAttachment.execute(id, attachmentId, user);
+    return this.presenter.one(
+      await this.removeAttachment.execute(id, attachmentId, user),
+    );
   }
 
   @Get('tickets/:id/comments')

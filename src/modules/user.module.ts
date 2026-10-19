@@ -5,6 +5,7 @@ import { ListUsersUseCase } from '@usecases/user/list-users.usecase';
 import { ListUserDirectoryUseCase } from '@usecases/user/list-user-directory.usecase';
 import { UpdateUserRoleUseCase } from '@usecases/user/update-user-role.usecase';
 import { UpdateMyProfileUseCase } from '@usecases/user/update-my-profile.usecase';
+import { CreateProfilePhotoUploadUseCase } from '@usecases/user/create-profile-photo-upload.usecase';
 import { DeleteUserUseCase } from '@usecases/user/delete-user.usecase';
 import { SendPasswordResetUseCase } from '@usecases/user/send-password-reset.usecase';
 import { RequestEmailChangeUseCase } from '@usecases/user/request-email-change.usecase';
@@ -19,6 +20,7 @@ import { ConfirmEmailChangeUseCase } from '@usecases/user/confirm-email-change.u
     ListUserDirectoryUseCase,
     UpdateUserRoleUseCase,
     UpdateMyProfileUseCase,
+    CreateProfilePhotoUploadUseCase,
     DeleteUserUseCase,
     SendPasswordResetUseCase,
     RequestEmailChangeUseCase,

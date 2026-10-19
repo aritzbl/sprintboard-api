@@ -38,12 +38,37 @@ Local:
   tareas asociadas. Listado paginado y buscable en el frontend.
 - Sprints/backlog/histórico: completar sprint conserva `done` en el histórico y mueve el resto al backlog
   u otro sprint. Sin sprint activo no se muestran tareas finalizadas como trabajo vigente.
-- Tickets: drag para estado/sprint, edición rápida desde card, story points editables, adjuntos Cloudinary,
+- Tickets: drag para estado/sprint, edición rápida desde card, story points editables, adjuntos en S3,
   borrado lógico con confirmación de escritura y toast.
 - Comentarios de tickets: CRUD, cada comentario conserva creador y solo su creador lo puede editar/eliminar.
   **Pendiente de validación manual completa por el usuario.**
 - Usuarios globales: tabla paginada, filtros y borrado lógico. Cambios de roles con toast.
 - Perfil: actualización de foto propagada en la UI; opción para restaurar avatar por defecto.
+
+## Almacenamiento (S3)
+
+Reemplaza a Cloudinary para evidencias de tickets y fotos de perfil (guía: `mercantil-crypto-gateway`).
+El navegador sube **directo a S3** con URLs prefirmadas; la API solo firma y valida.
+
+- `StorageService` (`src/application/services/storage.service.ts`, global vía `StorageModule`): `newKey`,
+  `uploadUrl` (PUT, 5 min), `readUrl` (GET, firmada contra el inicio de la hora y válida 2 h: misma URL
+  toda la hora → el navegador cachea), `publicUrl`, `stat` (HeadObject), `remove`.
+- Keys: `<S3_KEY_PREFIX>/<evidence|avatars>/<ticketId|userId>/<uuid><ext>` (nunca el nombre del usuario).
+- Evidencia: `POST /tickets/:id/attachments/upload-url {contentType,size}` → `{key,uploadUrl}` → PUT →
+  `POST /tickets/:id/attachments {key,name}`. Al adjuntar la API valida que la key sea de ese ticket y
+  lee tipo/tamaño **de S3** (HeadObject); si no califica, borra el objeto y responde 400. Idempotente.
+  Se guarda `storagePath: "s3:<key>"`, `url: ""`; `TicketPresenter` firma la URL en cada respuesta de
+  tickets. Los adjuntos viejos `cloudinary:` conservan su URL pública.
+- Avatar: `POST /users/me/photo/upload-url {contentType,size}` → `{uploadUrl,publicUrl}` → PUT → `PATCH /users/me {photoURL}`.
+  Solo `<prefix>/avatars/*` es público (bucket policy).
+- Quitar evidencia sigue siendo un archivado lógico: el objeto **no** se borra de S3.
+- Local: RustFS en `compose.yml` (`docker compose up -d s3 s3-init`), consola en
+  http://localhost:9001/rustfs/console/ (sprintboard / sprintboard-secret). MinIO ya no publica imágenes.
+- Gotchas: (1) el SDK v3 agrega checksums CRC32 por defecto que rompen el PUT prefirmado →
+  `requestChecksumCalculation: 'WHEN_REQUIRED'`. (2) El presigner deja `content-type` sin firmar por defecto →
+  `signableHeaders: ['content-type','content-length']`, si no un avatar público podría ser un HTML. (3) El bucket
+  necesita CORS (`docker/s3/cors.json`); sin eso el navegador bloquea el PUT.
+- Pendiente opcional: subidas que nunca se adjuntan quedan huérfanas en `evidence/` (privadas).
 
 ## Email y enlaces
 

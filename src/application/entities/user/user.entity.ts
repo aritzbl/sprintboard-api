@@ -7,6 +7,17 @@ export const PROJECT_MANAGER_ROLES: readonly Role[] = [
   'pm',
 ] as const;
 
+/** Profile photo types accepted for upload, with the extension of their S3 key. */
+export const PROFILE_PHOTO_EXTENSIONS = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+} as const;
+export type ProfilePhotoContentType = keyof typeof PROFILE_PHOTO_EXTENSIONS;
+export const PROFILE_PHOTO_CONTENT_TYPES = Object.keys(
+  PROFILE_PHOTO_EXTENSIONS,
+) as [ProfilePhotoContentType, ...ProfilePhotoContentType[]];
+export const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+
 /** Domain representation of an authenticated member of the workspace. */
 export class User {
   id!: string;
