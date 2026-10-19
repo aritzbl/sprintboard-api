@@ -1,6 +1,10 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-import { ROLES } from '@entities/user/user.entity';
+import {
+  MAX_PROFILE_PHOTO_BYTES,
+  PROFILE_PHOTO_CONTENT_TYPES,
+  ROLES,
+} from '@entities/user/user.entity';
 
 /**
  * Payload the frontend sends right after Firebase sign-in to create/refresh
@@ -22,6 +26,16 @@ export const updateMyProfileSchema = z.object({
   photoURL: z.string().url().nullable().optional(),
 });
 export class UpdateMyProfileDto extends createZodDto(updateMyProfileSchema) {}
+
+// The photo goes straight from the browser to S3 through a presigned URL;
+// the returned public URL is then saved with PATCH /users/me.
+export const createProfilePhotoUploadSchema = z.object({
+  contentType: z.enum(PROFILE_PHOTO_CONTENT_TYPES),
+  size: z.number().int().positive().max(MAX_PROFILE_PHOTO_BYTES),
+});
+export class CreateProfilePhotoUploadDto extends createZodDto(
+  createProfilePhotoUploadSchema,
+) {}
 
 export const updateUserRoleSchema = z.object({
   role: z.enum(ROLES),

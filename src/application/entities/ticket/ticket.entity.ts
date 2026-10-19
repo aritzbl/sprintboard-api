@@ -38,6 +38,26 @@ export function canTransition(from: TicketStatus, to: TicketStatus): boolean {
 export const STORY_POINTS = [1, 2, 3, 5, 8, 13, 21] as const;
 
 /** A piece of evidence attached to a ticket (stored in Firebase Storage). */
+/** File types accepted as evidence, with the extension used for their S3 key. */
+export const EVIDENCE_EXTENSIONS = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'application/pdf': '.pdf',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
+} as const;
+export type EvidenceContentType = keyof typeof EVIDENCE_EXTENSIONS;
+export const EVIDENCE_CONTENT_TYPES = Object.keys(
+  EVIDENCE_EXTENSIONS,
+) as [EvidenceContentType, ...EvidenceContentType[]];
+export const MAX_EVIDENCE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * `storagePath` says where the file lives: `s3:<key>` for S3 (private, the API
+ * signs a read URL on every response) or `cloudinary:<id>` for legacy uploads,
+ * whose public `url` is returned as is.
+ */
 export interface TicketAttachment {
   id: string;
   url: string;

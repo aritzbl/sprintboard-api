@@ -1,6 +1,8 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import {
+  EVIDENCE_CONTENT_TYPES,
+  MAX_EVIDENCE_BYTES,
   PRIORITIES,
   TICKET_STATUSES,
   TICKET_TYPES,
@@ -35,21 +37,19 @@ export const updateTicketSchema = z.object({
 });
 export class UpdateTicketDto extends createZodDto(updateTicketSchema) {}
 
-const EVIDENCE_CONTENT_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'application/pdf',
-  'video/mp4',
-  'video/webm',
-  'video/quicktime',
-] as const;
-
-// Files live in Cloudinary; the API accepts metadata only after validating it.
-export const createAttachmentSchema = z.object({
-  url: z.string().url().max(2048),
-  storagePath: z.string().trim().min(1).max(1024),
-  name: z.string().trim().min(1).max(255),
+// Evidence goes straight from the browser to S3: first ask for a presigned
+// upload URL, PUT the file there, then attach the returned key.
+export const createAttachmentUploadSchema = z.object({
   contentType: z.enum(EVIDENCE_CONTENT_TYPES),
-  size: z.number().int().nonnegative().max(52428800), // 50 MB
+  size: z.number().int().positive().max(MAX_EVIDENCE_BYTES),
+});
+export class CreateAttachmentUploadDto extends createZodDto(
+  createAttachmentUploadSchema,
+) {}
+
+// Type and size are not taken from here: the API reads them from S3.
+export const createAttachmentSchema = z.object({
+  key: z.string().trim().min(1).max(1024),
+  name: z.string().trim().min(1).max(255),
 });
 export class CreateAttachmentDto extends createZodDto(createAttachmentSchema) {}

@@ -1,0 +1,45 @@
+# Reverse proxy with automatic HTTPS, meant to sit BEHIND Cloudflare's proxy
+# (orange cloud), as in Oxavita.
+#
+# The certificate comes through DNS-01: Caddy creates a temporary TXT record in
+# the zone with CF_API_TOKEN (the same token update-dns.sh uses), so Let's
+# Encrypt never needs to reach the origin on port 80 — with the proxy on, it
+# cannot. Needs the ghcr.io/caddybuilds/caddy-cloudflare image (compose.prod.yml).
+#
+# In Cloudflare -> SSL/TLS -> Overview set "Full (strict)": the proxy talks TLS
+# to Caddy and checks the real certificate. "Flexible" loops redirects and
+# "Full" accepts any certificate.
+
+{
+    acme_dns cloudflare {env.CF_API_TOKEN}
+
+    # The real client comes in Cf-Connecting-Ip; without this, logs and
+    # X-Forwarded-For would show Cloudflare's IPs.
+    servers {
+        trusted_proxies cloudflare
+        client_ip_headers Cf-Connecting-Ip
+    }
+}
+
+{$SITE_ADDRESS} {
+    encode gzip
+
+    # Files go from the browser straight to S3: the API only receives JSON, so
+    # anything bigger is cut before it reaches the app.
+    request_body {
+        max_size 1MB
+    }
+
+    # Same domain for both apps: the web calls the API at /api (no CORS).
+    handle /api/* {
+        reverse_proxy api:4000
+    }
+    handle {
+        reverse_proxy web:3000
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

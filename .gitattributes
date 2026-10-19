@@ -1,0 +1,8 @@
+# These run on Linux (the VM and the containers): keep LF even on Windows
+# checkouts with core.autocrlf, or after scp bash fails with
+# "bash\r: No such file or directory".
+*.sh text eol=lf
+deploy/** text eol=lf
+compose*.yml text eol=lf
+Dockerfile text eol=lf
+.env.prod.example text eol=lf

@@ -1,0 +1,113 @@
+# Typecheck and build on every PR and on main. On PRs it also builds the image
+# (without pushing) so a broken Dockerfile never reaches main. On push to main,
+# a v* tag or a dispatch from main, it publishes to ghcr.io.
+#
+# It never touches the VM. The deploy is manual (DEPLOY.md):
+#
+#   cd /home/ec2-user && ./deploy/deploy.sh
+#
+# Images are linux/arm64 (the EC2 is a t4g), built on a native ARM runner.
+# For an amd64 instance (t3), change `platforms` and the runner.
+#
+# `latest` is only tagged on the default branch; a v* tag publishes the
+# version and the sha.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # From package-lock.json, as the Docker image does.
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  image:
+    needs: quality
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runtime
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: sprintboard-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke
+        run: docker run --rm --entrypoint sh sprintboard-api:ci -c
+          'test -f dist/main.js && test -f scripts/migrate.sh && ls migrations/*.sql >/dev/null
+          && psql --version && node -e "require.resolve(\"@nestjs/core\")"'
+
+  publish:
+    needs: quality
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.sha }}
+            type=ref,event=tag
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runtime
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - run: echo "::notice::ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"

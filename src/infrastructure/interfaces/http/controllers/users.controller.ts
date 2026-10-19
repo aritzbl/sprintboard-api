@@ -26,6 +26,7 @@ import {
 } from '@interfaces/http/middlewares/auth/current-user.decorator';
 import { User } from '@entities/user/user.entity';
 import {
+  CreateProfilePhotoUploadDto,
   SyncUserDto,
   UpdateMyProfileDto,
   UpdateUserRoleDto,
@@ -37,6 +38,10 @@ import { ListUsersUseCase } from '@usecases/user/list-users.usecase';
 import { ListUserDirectoryUseCase } from '@usecases/user/list-user-directory.usecase';
 import { UpdateUserRoleUseCase } from '@usecases/user/update-user-role.usecase';
 import { UpdateMyProfileUseCase } from '@usecases/user/update-my-profile.usecase';
+import {
+  CreateProfilePhotoUploadUseCase,
+  ProfilePhotoUpload,
+} from '@usecases/user/create-profile-photo-upload.usecase';
 import { DeleteUserUseCase } from '@usecases/user/delete-user.usecase';
 import { SendPasswordResetUseCase } from '@usecases/user/send-password-reset.usecase';
 import { RequestEmailChangeUseCase } from '@usecases/user/request-email-change.usecase';
@@ -56,6 +61,7 @@ export class UsersController {
     private readonly listUserDirectory: ListUserDirectoryUseCase,
     private readonly updateUserRole: UpdateUserRoleUseCase,
     private readonly updateMyProfile: UpdateMyProfileUseCase,
+    private readonly createProfilePhotoUpload: CreateProfilePhotoUploadUseCase,
     private readonly deleteUser: DeleteUserUseCase,
     private readonly sendPasswordReset: SendPasswordResetUseCase,
     private readonly requestEmailChange: RequestEmailChangeUseCase,
@@ -123,6 +129,18 @@ export class UsersController {
     @Body() dto: UpdateMyProfileDto,
   ): Promise<User> {
     return this.updateMyProfile.execute(user, dto);
+  }
+
+  @Post('me/photo/upload-url')
+  @ApiOperation({
+    summary:
+      'Presigned S3 URL to PUT a new profile photo; save its publicUrl with PATCH /users/me',
+  })
+  photoUploadUrl(
+    @CurrentUser() user: User,
+    @Body() dto: CreateProfilePhotoUploadDto,
+  ): Promise<ProfilePhotoUpload> {
+    return this.createProfilePhotoUpload.execute(user, dto);
   }
 
   @Get()

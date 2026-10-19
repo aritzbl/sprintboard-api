@@ -40,7 +40,26 @@ export const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
   FIREBASE_CLIENT_EMAIL: z.string().min(1, 'FIREBASE_CLIENT_EMAIL is required'),
   FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY is required'),
-  CLOUDINARY_CLOUD_NAME: z.string().min(1).default('kpurw60m'),
+  // Object storage (evidence and profile photos) on S3, or MinIO locally from
+  // compose.yml. The browser uploads straight to the bucket through presigned
+  // PUT URLs; the API only signs and validates.
+  //   S3_BUCKET           without it uploads answer 503.
+  //   S3_KEY_PREFIX       per-environment folder in the bucket (local, prod…).
+  //   S3_PUBLIC_BASE_URL  public origin of `<prefix>/avatars/*` (bucket policy or
+  //                       CDN). Evidence stays private: read through signed URLs.
+  //   S3_ENDPOINT, S3_FORCE_PATH_STYLE  only for S3-compatible servers (MinIO).
+  // Credentials are optional: without them the SDK default chain is used.
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_KEY_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9-]+$/, 'lowercase letters, digits or hyphens')
+    .default('local'),
+  S3_PUBLIC_BASE_URL: z.string().url().optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_FORCE_PATH_STYLE: envBoolean(false),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
 
   // Email. IS_EMAIL_MOCKED=true sends everything to Mailpit (MAILPIT_URL), the
   // local inbox from compose.yml, whatever the rest says. Otherwise
@@ -71,13 +90,15 @@ export const envSchema = z.object({
 
   WEB_URL: z.string().url().default('http://localhost:3000'),
   LINK_EXPIRATION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-}).refine(
-  (env) => !env.SES_ACCESS_KEY_ID === !env.SES_SECRET_ACCESS_KEY,
-  {
+})
+  .refine((env) => !env.SES_ACCESS_KEY_ID === !env.SES_SECRET_ACCESS_KEY, {
     message: 'SES_ACCESS_KEY_ID and SES_SECRET_ACCESS_KEY must be set together',
     path: ['SES_ACCESS_KEY_ID'],
-  },
-);
+  })
+  .refine((env) => !env.S3_ACCESS_KEY_ID === !env.S3_SECRET_ACCESS_KEY, {
+    message: 'S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be set together',
+    path: ['S3_ACCESS_KEY_ID'],
+  });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 

@@ -35,5 +35,49 @@ services:
       interval: 5s
       retries: 10
 
+  # Local S3. RustFS speaks the S3 API, so the app runs the same code as on AWS
+  # (S3_ENDPOINT=http://localhost:9000). MinIO no longer publishes images.
+  s3:
+    image: rustfs/rustfs:latest
+    container_name: sprintboard-s3
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: sprintboard
+      RUSTFS_SECRET_KEY: sprintboard-secret
+      RUSTFS_CONSOLE_ENABLE: 'true'
+    ports:
+      - '${S3_API_PORT:-9000}:9000'
+      - '${S3_CONSOLE_PORT:-9001}:9001' # console: http://localhost:9001/rustfs/console/
+    volumes:
+      - sprintboard_s3:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fs', 'http://localhost:9000/health']
+      interval: 5s
+      retries: 10
+
+  # One-shot: creates the `kanbio` bucket, makes only `local/avatars/*` public
+  # and allows browser uploads (CORS) — the same setup the AWS bucket needs,
+  # from the JSON files in docker/s3. Evidence stays private (signed URLs).
+  s3-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      s3:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: sprintboard
+      AWS_SECRET_ACCESS_KEY: sprintboard-secret
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./docker/s3:/s3:ro
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >
+        S3="aws --endpoint-url http://s3:9000 s3api" &&
+        ($$S3 head-bucket --bucket kanbio 2>/dev/null || $$S3 create-bucket --bucket kanbio) &&
+        $$S3 put-bucket-policy --bucket kanbio --policy file:///s3/public-avatars-policy.json &&
+        $$S3 put-bucket-cors --bucket kanbio --cors-configuration file:///s3/cors.json &&
+        echo "bucket kanbio ready"
+
 volumes:
   sprintboard_pgdata:
+  sprintboard_s3:

@@ -7,6 +7,15 @@ import { EnvVar } from '@config/env-var';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // One-shot for scripts/migrate.sh on an empty database: with
+  // DB_SYNCHRONIZE=true, creating the app already built the schema.
+  if (process.argv.includes('--sync-schema')) {
+    await app.close();
+    Logger.log('Schema created from the entities', 'Bootstrap');
+    return;
+  }
+
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
